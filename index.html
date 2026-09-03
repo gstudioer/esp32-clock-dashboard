@@ -107,14 +107,16 @@
     let rawLogsData = [];
     let myChart = null;
 
-    // Caricamento dati via JSONP (Supera il blocco CORS)
     function loadDataJSONP() {
+      const oldScript = document.getElementById('jsonp-script');
+      if (oldScript) oldScript.remove();
+
       const script = document.createElement('script');
-      script.src = WEBHOOK_URL + "&callback=onDataLoaded";
+      script.id = 'jsonp-script';
+      script.src = WEBHOOK_URL + "&callback=onDataLoaded&t=" + new Date().getTime();
       document.body.appendChild(script);
     }
 
-    // Callback chiamata automaticamente al momento della risposta da Google
     function onDataLoaded(data) {
       rawLogsData = data;
       populateDateDropdown();
@@ -155,7 +157,7 @@
 
       rawLogsData.forEach(row => {
         if (String(row[0]).trim() === selectedDate) {
-          const timeStr = String(row[2]).trim(); // ULTIMO SEGNALE
+          const timeStr = String(row[2]).trim();
           if (timeStr && timeStr.length >= 8) {
             const hour = parseInt(timeStr.split(":")[0], 10);
             if (!isNaN(hour) && hour >= 0 && hour < 24) {
@@ -165,16 +167,16 @@
         }
       });
 
-      // Calcolo ore e minuti totali
-      const totalMinutes = hourlyActivity.reduce((a, b) => a + (b > 0 ? 15 : 0), 0);
+      // Calcolo ore e minuti totali attivi
+      const totalMinutes = hourlyActivity.reduce((acc, count) => acc + count, 0);
       const h = Math.floor(totalMinutes / 60);
       const m = totalMinutes % 60;
       document.getElementById("total-hours").textContent = `${h}h ${m}m`;
 
       const backgroundColors = hourlyActivity.map(count => {
-        if (count >= 3) return '#38ef7d'; // Verde brillante
-        if (count >= 1) return '#11998e'; // Ottanio
-        return '#1a212d';                // Scuro (Spento)
+        if (count >= 45) return '#38ef7d'; // Verde pieno per quasi un'ora di attività
+        if (count >= 1) return '#11998e';  // Ottanio/Verde scuro per attività parziale
+        return '#1a212d';                 // Grigio/Nero per inattività
       });
 
       const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
@@ -201,8 +203,8 @@
               callbacks: {
                 label: function(context) {
                   const hour = context.dataIndex;
-                  const status = hourlyActivity[hour] > 0 ? "ATTIVO" : "INATTIVO";
-                  return ` Fascia oraria ${hour}:00 - Stato: ${status}`;
+                  const count = hourlyActivity[hour];
+                  return ` Fascia ${hour}:00 - Minuti attivi: ${count}`;
                 }
               }
             }
@@ -221,9 +223,8 @@
       }
     }
 
-    // Caricamento iniziale e refresh ogni 30 secondi
     loadDataJSONP();
-    setInterval(loadDataJSONP, 30000);
+    setInterval(loadDataJSONP, 30000); // Auto-refresh ogni 30 secondi
   </script>
 </body>
 </html>
