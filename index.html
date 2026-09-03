@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 - Monitor Attività Orologio</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #0b0e14;
+      color: #e1e6ed;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #121721;
+      border: 1px solid #212936;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      text-align: center;
+      max-width: 440px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 10px 0;
+      color: #38ef7d;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 25px;
+    }
+    .online { background: rgba(56, 239, 125, 0.15); color: #38ef7d; border: 1px solid #38ef7d; }
+    .offline { background: rgba(255, 75, 75, 0.15); color: #ff4b4b; border: 1px solid #ff4b4b; }
+    
+    .chart-container {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 25px auto;
+    }
+    .chart-center-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+    .chart-center-subtext {
+      font-size: 0.75rem;
+      color: #788ba6;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    select {
+      background: #1a212d;
+      color: #e1e6ed;
+      border: 1px solid #2a3446;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Orologio ESP32</h1>
+    <div id="status-badge" class="status-badge offline">CARICAMENTO...</div>
+
+    <div class="chart-container">
+      <canvas id="clockChart"></canvas>
+      <div class="chart-center-text">
+        <span id="total-hours">0h 0m</span>
+        <div class="chart-center-subtext">Tempo Attivo</div>
+      </div>
+    </div>
+
+    <label for="dateSelect" style="font-size:0.8rem; color:#788ba6; display:block; margin-bottom:8px; text-align:left;">SELEZIONA GIORNO:</label>
+    <select id="dateSelect" onchange="updateChart()"></select>
+  </div>
+
+  <script>
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
+    let rawLogsData = [];
+    let myChart = null;
+
+    async function fetchData() {
+      try {
+        const response = await fetch(WEBHOOK_URL);
+        rawLogsData = await response.json();
+        populateDateDropdown();
+        updateChart();
+      } catch (err) {
+        console.error("Errore caricamento dati:", err);
+      }
+    }
+
+    function populateDateDropdown() {
+      const select = document.getElementById("dateSelect");
+      const currentSelection = select.value;
+      select.innerHTML = "";
+      const dates = new Set();
+
+      for (let i = 1; i < rawLogsData.length; i++) {
+        const dateStr = String(rawLogsData[i][0]).trim();
+        if (dateStr && !dateStr.includes("TOTALE") && dateStr !== "DATA") {
+          dates.add(dateStr);
+        }
+      }
+
+      const sortedDates = Array.from(dates).reverse();
+      sortedDates.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        select.appendChild(opt);
+      });
+
+      if (currentSelection && dates.has(currentSelection)) {
+        select.value = currentSelection;
+      }
+    }
+
+    function updateChart() {
+      const selectedDate = document.getElementById("dateSelect").value;
+      if (!selectedDate) return;
+
+      const hourlyActivity = new Array(24).fill(0);
+
+      rawLogsData.forEach(row => {
+        if (String(row[0]).trim() === selectedDate) {
+          const timeStr = String(row[2]).trim();
+          if (timeStr && timeStr.length >= 8) {
+            const hour = parseInt(timeStr.split(":")[0], 10);
+            if (!isNaN(hour) && hour >= 0 && hour < 24) {
+              hourlyActivity[hour] += 1; // Incrementa ogni heartbeat registrato
+            }
+          }
+        }
+      });
+
+      // Calcolo indicativo minuti totali
+      const totalMinutes = hourlyActivity.reduce((a, b) => a + (b > 0 ? 15 : 0), 0);
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      document.getElementById("total-hours").textContent = `${h}h ${m}m`;
+
+      // Palette colori per gli spicchi
+      const backgroundColors = hourlyActivity.map(count => {
+        if (count >= 3) return '#38ef7d'; // Attività alta (Verde)
+        if (count >= 1) return '#11998e'; // Attività media (Ottanio)
+        return '#1a212d';                // Inattivo (Grigio Scuro)
+      });
+
+      const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+
+      if (myChart) myChart.destroy();
+
+      const ctx = document.getElementById('clockChart').getContext('2d');
+      myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: new Array(24).fill(1),
+            backgroundColor: backgroundColors,
+            borderWidth: 2,
+            borderColor: '#121721'
+          }]
+        },
+        options: {
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const hour = context.dataIndex;
+                  const status = hourlyActivity[hour] > 0 ? "ATTIVO" : "INATTIVO";
+                  return ` Fascia oraria ${hour}:00 - Stato: ${status}`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Aggiornamento Badge
+      const badge = document.getElementById("status-badge");
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (selectedDate === todayStr && totalMinutes > 0) {
+        badge.textContent = "STATO: ONLINE";
+        badge.className = "status-badge online";
+      } else {
+        badge.textContent = "STATO: INATTIVO";
+        badge.className = "status-badge offline";
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, 30000); // Auto-refresh ogni 30 secondi
+  </script>
+</body>
+</html>
