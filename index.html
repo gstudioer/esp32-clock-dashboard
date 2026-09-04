@@ -3,228 +3,212 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 - Monitor Attività Orologio</title>
+  <title>Orologi di Utilizzo ESP32 - Google Drive</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       background-color: #0b0e14;
       color: #e1e6ed;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
       margin: 0;
-      padding: 20px;
+      padding: 30px 20px;
       box-sizing: border-box;
     }
-    .card {
+    header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #38ef7d;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 0 0 10px 0;
+    }
+    p.subtitle {
+      color: #788ba6;
+      font-size: 0.95rem;
+      margin: 0;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .clock-card {
       background: #121721;
       border: 1px solid #212936;
       border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      padding: 25px 20px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
       text-align: center;
-      max-width: 440px;
-      width: 100%;
+      transition: transform 0.2s ease, border-color 0.2s ease;
     }
-    h1 {
-      font-size: 1.4rem;
-      margin: 0 0 10px 0;
-      color: #38ef7d;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
+    .clock-card:hover {
+      transform: translateY(-4px);
+      border-color: #38ef7d;
     }
-    .status-badge {
+    .date-badge {
       display: inline-block;
-      padding: 6px 16px;
+      background: #1a212d;
+      color: #58a6ff;
+      border: 1px solid #2a3446;
+      padding: 6px 14px;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       font-weight: 700;
+      margin-bottom: 20px;
       letter-spacing: 1px;
-      margin-bottom: 25px;
     }
-    .online { background: rgba(56, 239, 125, 0.15); color: #38ef7d; border: 1px solid #38ef7d; }
-    .offline { background: rgba(255, 75, 75, 0.15); color: #ff4b4b; border: 1px solid #ff4b4b; }
-    
     .chart-container {
       position: relative;
-      width: 280px;
-      height: 280px;
-      margin: 0 auto 25px auto;
+      width: 230px;
+      height: 230px;
+      margin: 0 auto;
     }
     .chart-center-text {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 1.6rem;
+      font-size: 1.3rem;
       font-weight: bold;
       color: #ffffff;
       text-shadow: 0 0 10px rgba(255,255,255,0.2);
     }
     .chart-center-subtext {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #788ba6;
       text-transform: uppercase;
       margin-top: 2px;
     }
-    select {
-      background: #1a212d;
-      color: #e1e6ed;
-      border: 1px solid #2a3446;
-      padding: 10px 18px;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      outline: none;
-      cursor: pointer;
-      width: 100%;
-      box-sizing: border-box;
+    .loading-state {
+      text-align: center;
+      font-size: 1.2rem;
+      color: #788ba6;
+      margin-top: 50px;
     }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h1>Orologio ESP32</h1>
-    <div id="status-badge" class="status-badge offline">CARICAMENTO...</div>
+  <header>
+    <h1>ESP32 - Activity Clock Monitor</h1>
+    <p class="subtitle">Orologi di utilizzo calcolati direttamente dal foglio Drive</p>
+  </header>
 
-    <div class="chart-container">
-      <canvas id="clockChart"></canvas>
-      <div class="chart-center-text">
-        <span id="total-hours">0h 0m</span>
-        <div class="chart-center-subtext">Tempo Attivo</div>
-      </div>
-    </div>
-
-    <label for="dateSelect" style="font-size:0.8rem; color:#788ba6; display:block; margin-bottom:8px; text-align:left;">SELEZIONA GIORNO:</label>
-    <select id="dateSelect" onchange="updateChart()"></select>
-  </div>
+  <div id="loading" class="loading-state">Caricamento dati dal foglio in corso...</div>
+  <div id="clocksGrid" class="grid-container"></div>
 
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
-    let rawLogsData = [];
-    let myChart = null;
 
-    function loadDataJSONP() {
+    function loadDataFromDrive() {
       const oldScript = document.getElementById('jsonp-script');
       if (oldScript) oldScript.remove();
 
       const script = document.createElement('script');
       script.id = 'jsonp-script';
-      script.src = WEBHOOK_URL + "&callback=onDataLoaded&t=" + new Date().getTime();
+      script.src = WEBHOOK_URL + "&callback=renderAllClocks&t=" + new Date().getTime();
       document.body.appendChild(script);
     }
 
-    function onDataLoaded(data) {
-      rawLogsData = data;
-      populateDateDropdown();
-      updateChart();
-    }
+    function renderAllClocks(data) {
+      document.getElementById("loading").style.display = "none";
+      const grid = document.getElementById("clocksGrid");
+      grid.innerHTML = "";
 
-    function populateDateDropdown() {
-      const select = document.getElementById("dateSelect");
-      const currentSelection = select.value;
-      select.innerHTML = "";
-      const dates = new Set();
+      // Mappa per raggruppare le ore di attività per ogni data
+      const dailyMap = {};
 
-      for (let i = 1; i < rawLogsData.length; i++) {
-        const dateStr = String(rawLogsData[i][0]).trim();
-        if (dateStr && !dateStr.includes("TOTALE") && dateStr !== "DATA") {
-          dates.add(dateStr);
-        }
-      }
+      for (let i = 1; i < data.length; i++) {
+        const rowDate = String(data[i][0]).trim();
+        const lastSignalTime = String(data[i][2]).trim();
 
-      const sortedDates = Array.from(dates).reverse();
-      sortedDates.forEach(d => {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        select.appendChild(opt);
-      });
-
-      if (currentSelection && dates.has(currentSelection)) {
-        select.value = currentSelection;
-      }
-    }
-
-    function updateChart() {
-      const selectedDate = document.getElementById("dateSelect").value;
-      if (!selectedDate) return;
-
-      const hourlyActivity = new Array(24).fill(0);
-
-      rawLogsData.forEach(row => {
-        if (String(row[0]).trim() === selectedDate) {
-          const timeStr = String(row[2]).trim();
-          if (timeStr && timeStr.length >= 8) {
-            const hour = parseInt(timeStr.split(":")[0], 10);
+        if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
+          if (!dailyMap[rowDate]) {
+            dailyMap[rowDate] = new Array(24).fill(0);
+          }
+          if (lastSignalTime && lastSignalTime.length >= 8) {
+            const hour = parseInt(lastSignalTime.split(":")[0], 10);
             if (!isNaN(hour) && hour >= 0 && hour < 24) {
-              hourlyActivity[hour] += 1;
+              dailyMap[rowDate][hour] += 1;
             }
           }
         }
-      });
+      }
 
-      // Calcolo ore e minuti totali attivi
-      const totalMinutes = hourlyActivity.reduce((acc, count) => acc + count, 0);
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      document.getElementById("total-hours").textContent = `${h}h ${m}m`;
+      const sortedDates = Object.keys(dailyMap).reverse();
 
-      const backgroundColors = hourlyActivity.map(count => {
-        if (count >= 45) return '#38ef7d'; // Verde pieno per quasi un'ora di attività
-        if (count >= 1) return '#11998e';  // Ottanio/Verde scuro per attività parziale
-        return '#1a212d';                 // Grigio/Nero per inattività
-      });
+      if (sortedDates.length === 0) {
+        grid.innerHTML = "<div class='loading-state'>Nessun dato registrato nel foglio Drive.</div>";
+        return;
+      }
 
-      const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+      sortedDates.forEach((dateKey, index) => {
+        const hourlyActivity = dailyMap[dateKey];
+        
+        // Calcolo minuti attivi relativi al giorno
+        const activeUnits = hourlyActivity.reduce((acc, count) => acc + (count > 0 ? 1 : 0), 0);
+        const totalMinutes = activeUnits * 15; // Ogni impulso equivale alla finestra di attività
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
 
-      if (myChart) myChart.destroy();
+        // Genera la Card per l'Orologio del giorno
+        const card = document.createElement("div");
+        card.className = "clock-card";
+        card.innerHTML = `
+          <div class="date-badge">GIORNO: ${dateKey}</div>
+          <div class="chart-container">
+            <canvas id="clockCanvas_${index}"></canvas>
+            <div class="chart-center-text">
+              ${hrs}h ${mins}m
+              <div class="chart-center-subtext">Tempo Attivo</div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
 
-      const ctx = document.getElementById('clockChart').getContext('2d');
-      myChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: labels,
-          datasets: [{
-            data: new Array(24).fill(1),
-            backgroundColor: backgroundColors,
-            borderWidth: 2,
-            borderColor: '#121721'
-          }]
-        },
-        options: {
-          cutout: '72%',
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const hour = context.dataIndex;
-                  const count = hourlyActivity[hour];
-                  return ` Fascia ${hour}:00 - Minuti attivi: ${count}`;
+        // Mappa colori dell'orologio (Verde = Attivo, Scuro = Inattivo)
+        const bgColors = hourlyActivity.map(count => count > 0 ? '#38ef7d' : '#1a212d');
+        const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+
+        // Disegna l'orologio grafico a 24 ore
+        const ctx = document.getElementById(`clockCanvas_${index}`).getContext('2d');
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: new Array(24).fill(1),
+              backgroundColor: bgColors,
+              borderWidth: 2,
+              borderColor: '#121721'
+            }]
+          },
+          options: {
+            cutout: '72%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) {
+                    const hour = ctx.dataIndex;
+                    const status = hourlyActivity[hour] > 0 ? "ATTIVO" : "INATTIVO";
+                    return ` Ora ${hour}:00 - Status: ${status}`;
+                  }
                 }
               }
             }
           }
-        }
+        });
       });
-
-      const badge = document.getElementById("status-badge");
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (selectedDate === todayStr && totalMinutes > 0) {
-        badge.textContent = "STATO: ONLINE";
-        badge.className = "status-badge online";
-      } else {
-        badge.textContent = "STATO: INATTIVO";
-        badge.className = "status-badge offline";
-      }
     }
 
-    loadDataJSONP();
-    setInterval(loadDataJSONP, 30000); // Auto-refresh ogni 30 secondi
+    loadDataFromDrive();
+    setInterval(loadDataFromDrive, 30000);
   </script>
 </body>
 </html>
