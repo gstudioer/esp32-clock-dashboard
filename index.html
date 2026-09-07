@@ -173,6 +173,7 @@
       font-size: 1rem;
     }
 
+    /* Layout Orologi */
     .clocks-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -183,32 +184,61 @@
       background: #0b0e14;
       border: 1px solid #1f2733;
       border-radius: 16px;
-      padding: 15px;
+      padding: 20px 15px;
       text-align: center;
     }
     .clock-title {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       color: #788ba6;
       font-weight: 600;
       text-transform: uppercase;
-      margin-bottom: 12px;
+      margin-bottom: 15px;
       letter-spacing: 0.5px;
     }
     .chart-container {
       position: relative;
-      width: 180px;
-      height: 180px;
-      margin: 0 auto;
+      width: 210px;
+      height: 210px;
+      margin: 0 auto 15px auto;
     }
     .chart-center-text {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: bold;
       color: #ffffff;
       text-shadow: 0 0 8px rgba(255,255,255,0.2);
+    }
+
+    /* Box Dettaglio Orari */
+    .timestamps-box {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: #121721;
+      border: 1px solid #1f2733;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      gap: 10px;
+    }
+    .ts-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .ts-label {
+      font-size: 0.72rem;
+      color: #788ba6;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .ts-val {
+      font-size: 0.95rem;
+      font-weight: bold;
+      margin-top: 2px;
     }
 
     .fasce-grid {
@@ -293,14 +323,13 @@
       </div>
     </div>
 
-    <div class="section-title">Orologi Giornalieri & Ripartizione Fasce</div>
+    <div class="section-title">Orologi 24H Giornalieri & Orari Accensione/Segnale</div>
     <div id="clocksGrid" class="grid-container"></div>
   </div>
 
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    // NUOVA TAVOLOZZA COLORI PER FASCE
     const COLOR_NOTTE = "#ff4d4d";      // ROSSO (00:00 - 06:00)
     const COLOR_MATTINA = "#00d2ff";    // AZZURRO (06:00 - 12:00)
     const COLOR_POMERIGGIO = "#ff9f43"; // ARANCIO (12:00 - 18:00)
@@ -373,8 +402,18 @@
           if (!cachedDailyMap[rowDate]) {
             cachedDailyMap[rowDate] = {
               hourly: new Array(24).fill(false),
-              totalMins: 0
+              totalMins: 0,
+              firstOn: startTimeStr,
+              lastSignal: endTimeStr
             };
+          }
+
+          // Aggiorna prima ora accensione e ultimo segnale per il giorno
+          if (!cachedDailyMap[rowDate].firstOn || startTimeStr < cachedDailyMap[rowDate].firstOn) {
+            cachedDailyMap[rowDate].firstOn = startTimeStr;
+          }
+          if (endTimeStr > cachedDailyMap[rowDate].lastSignal) {
+            cachedDailyMap[rowDate].lastSignal = endTimeStr;
           }
 
           cachedDailyMap[rowDate].totalMins += activeMins;
@@ -543,31 +582,33 @@
           </div>
 
           <div class="clocks-row">
-            <div class="clock-box">
-              <div class="clock-title">Orologio 24 Ore</div>
+            <!-- OROLOGIO 24 ORE CON Dettaglio Ora Accensione e Ultimo Segnale -->
+            <div class="clock-box" style="grid-column: 1 / -1; max-width: 500px; margin: 0 auto; width: 100%;">
+              <div class="clock-title">Orologio 24 Ore - Tracciamento Giornaliero</div>
               <div class="chart-container">
                 <canvas id="clock24_${index}"></canvas>
-                <div class="chart-center-text">${hrs}h ${mins}m</div>
+                <div class="chart-center-text">
+                  ${hrs}h ${mins}m
+                  <div style="font-size: 0.68rem; color: #788ba6; text-transform: uppercase; margin-top: 2px;">Totale Attivo</div>
+                </div>
               </div>
-            </div>
 
-            <div class="clock-box">
-              <div class="clock-title">Diurno (06:00 - 18:00)</div>
-              <div class="chart-container">
-                <canvas id="clockDay_${index}"></canvas>
-                <div class="chart-center-text" style="color: ${COLOR_MATTINA};">${countMattina + countPomeriggio}h</div>
-              </div>
-            </div>
-
-            <div class="clock-box">
-              <div class="clock-title">Notturno (18:00 - 06:00)</div>
-              <div class="chart-container">
-                <canvas id="clockNight_${index}"></canvas>
-                <div class="chart-center-text" style="color: ${COLOR_SERA};">${countNotte + countSera}h</div>
+              <!-- BADGES ORA ACCENSIONE ED ULTIMO SEGNALE -->
+              <div class="timestamps-box">
+                <div class="ts-item">
+                  <span class="ts-label">🟢 Ora Accensione</span>
+                  <span class="ts-val" style="color: #38ef7d;">${dayData.firstOn || "--:--:--"}</span>
+                </div>
+                <div style="width: 1px; height: 25px; background: #212936;"></div>
+                <div class="ts-item">
+                  <span class="ts-label">📡 Ultimo Segnale</span>
+                  <span class="ts-val" style="color: #58a6ff;">${dayData.lastSignal || "--:--:--"}</span>
+                </div>
               </div>
             </div>
           </div>
 
+          <!-- DETTAGLIO FASCE ORARIE -->
           <div class="fasce-grid">
             <div class="fascia-item">
               <div class="fascia-label" style="color: ${COLOR_NOTTE};">🔴 Notte (00:00 - 06:00)</div>
@@ -593,7 +634,7 @@
         `;
         grid.appendChild(dayCard);
 
-        // 1. Orologio 24 Ore con i 4 colori distinti per ogni fascia
+        // Generazione dell'Orologio 24 Ore con segmenti colorati per fascia oraria
         const colors24 = dayData.hourly.map((a, h) => {
           if (!a) return COLOR_INATTIVO;
           if (h >= 0 && h < 6) return COLOR_NOTTE;
@@ -602,28 +643,6 @@
           return COLOR_SERA;
         });
         createDoughnutSafely(`clock24_${index}`, colors24, Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`));
-
-        // 2. Orologio Diurno (Mattina Azzurra / Pomeriggio Arancio)
-        const hourlyDay = dayData.hourly.slice(6, 18);
-        const colorsDay = hourlyDay.map((a, i) => {
-          if (!a) return COLOR_INATTIVO;
-          const h = i + 6;
-          return (h >= 6 && h < 12) ? COLOR_MATTINA : COLOR_POMERIGGIO;
-        });
-        const labelsDay = Array.from({length: 12}, (_, i) => `${(i + 6).toString().padStart(2, '0')}:00`);
-        createDoughnutSafely(`clockDay_${index}`, colorsDay, labelsDay);
-
-        // 3. Orologio Notturno (Sera Blu / Notte Rossa)
-        const hourlyNight = [...dayData.hourly.slice(18, 24), ...dayData.hourly.slice(0, 6)];
-        const colorsNight = hourlyNight.map((a, i) => {
-          if (!a) return COLOR_INATTIVO;
-          return (i < 6) ? COLOR_SERA : COLOR_NOTTE;
-        });
-        const labelsNight = Array.from({length: 12}, (_, i) => {
-          const h = (i + 18) % 24;
-          return `${h.toString().padStart(2, '0')}:00`;
-        });
-        createDoughnutSafely(`clockNight_${index}`, colorsNight, labelsNight);
       });
     }
 
