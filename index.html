@@ -51,7 +51,6 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
-    /* Sezione Analisi Generale */
     .analytics-section {
       max-width: 1300px;
       margin: 0 auto 40px auto;
@@ -76,7 +75,6 @@
       text-align: center;
     }
 
-    /* Griglia Orologi e Schede Giornaliere */
     .section-title {
       max-width: 1300px;
       margin: 0 auto 20px auto;
@@ -127,7 +125,6 @@
       font-size: 1rem;
     }
 
-    /* Layout Triplo Orologio */
     .clocks-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -166,7 +163,6 @@
       text-shadow: 0 0 8px rgba(255,255,255,0.2);
     }
 
-    /* Dettaglio Fasce Orarie */
     .fasce-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -231,4 +227,133 @@
         <div class="analytics-title">Ore Attive per Giorno (Totale)</div>
         <canvas id="barChartDays"></canvas>
       </div>
-      <div class="analytics-card
+      <div class="analytics-card">
+        <div class="analytics-title">Ripartizione Utilizzo Complessiva per Fasce</div>
+        <canvas id="pieChartFasce"></canvas>
+      </div>
+    </div>
+
+    <div class="section-title">Orologi Giornalieri & Ripartizione Fasce</div>
+    <div id="clocksGrid" class="grid-container"></div>
+  </div>
+
+  <script>
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
+
+    let barChartInstance = null;
+    let pieChartInstance = null;
+
+    function loadDataFromDrive() {
+      const oldScript = document.getElementById('jsonp-script');
+      if (oldScript) oldScript.remove();
+
+      const script = document.createElement('script');
+      script.id = 'jsonp-script';
+      script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
+      document.body.appendChild(script);
+    }
+
+    function parseHour(timeStr) {
+      if (!timeStr) return -1;
+      let str = String(timeStr).trim();
+      if (str.includes("T")) str = str.split("T")[1];
+      const parts = str.split(":");
+      if (parts.length >= 1) {
+        const h = parseInt(parts[0], 10);
+        if (!isNaN(h) && h >= 0 && h < 24) return h;
+      }
+      return -1;
+    }
+
+    function parseDate(dateVal) {
+      if (!dateVal) return "";
+      let str = String(dateVal).trim();
+      if (str.includes("T")) str = str.split("T")[0];
+      return str;
+    }
+
+    function processAndRender(data) {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("analyticsWrapper").style.display = "block";
+
+      if (!data || !Array.isArray(data) || data.length < 2) return;
+
+      const dailyMap = {};
+
+      for (let i = 1; i < data.length; i++) {
+        const rowDate = parseDate(data[i][0]);
+        const startTimeStr = String(data[i][1] || "");
+        const endTimeStr = String(data[i][2] || "");
+        const activeMins = parseInt(data[i][3], 10) || 0;
+
+        if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
+          if (!dailyMap[rowDate]) {
+            dailyMap[rowDate] = {
+              hourly: new Array(24).fill(false),
+              totalMins: 0
+            };
+          }
+
+          dailyMap[rowDate].totalMins += activeMins;
+
+          const startHour = parseHour(startTimeStr);
+          const endHour = parseHour(endTimeStr);
+
+          if (startHour !== -1 && endHour !== -1) {
+            for (let h = startHour; h <= endHour; h++) {
+              if (h >= 0 && h < 24) {
+                dailyMap[rowDate].hourly[h] = true;
+              }
+            }
+          }
+        }
+      }
+
+      const sortedDates = Object.keys(dailyMap).sort();
+
+      renderAnalyticsCharts(sortedDates, dailyMap);
+      renderClockCards(sortedDates.slice().reverse(), dailyMap);
+    }
+
+    function renderAnalyticsCharts(dates, dailyMap) {
+      const labelsDays = dates;
+      const dataHoursDays = dates.map(d => (dailyMap[d].totalMins / 60).toFixed(1));
+
+      if (barChartInstance) barChartInstance.destroy();
+      const ctxBar = document.getElementById('barChartDays').getContext('2d');
+      barChartInstance = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: labelsDays,
+          datasets: [{
+            label: 'Ore Attive',
+            data: dataHoursDays,
+            backgroundColor: '#38ef7d',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
+            y: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } }
+          }
+        }
+      });
+
+      let notte = 0, mattina = 0, pomeriggio = 0, sera = 0;
+
+      dates.forEach(d => {
+        dailyMap[d].hourly.forEach((isActive, hour) => {
+          if (isActive) {
+            if (hour >= 0 && hour < 6) notte++;
+            else if (hour >= 6 && hour < 12) mattina++;
+            else if (hour >= 12 && hour < 18) pomeriggio++;
+            else sera++;
+          }
+        });
+      });
+
+      if (pieChartInstance) pieChartInstance.destroy();
+      const
