@@ -113,15 +113,32 @@
       border-radius: 20px;
       padding: 20px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
     }
     .analytics-title {
       font-size: 1.05rem;
       color: #58a6ff;
       font-weight: bold;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
       text-align: center;
+    }
+
+    /* CONTATORE TOTALE ORE */
+    .total-counter-badge {
+      background: #0b0e14;
+      border: 1px solid #38ef7d;
+      color: #38ef7d;
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 15px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 10px rgba(56, 239, 125, 0.15);
     }
 
     .section-title {
@@ -240,7 +257,6 @@
       font-weight: bold;
     }
 
-    /* LEGGENDA SIMBOLI E FASCE */
     .symbols-legend {
       display: flex;
       justify-content: center;
@@ -308,13 +324,14 @@
     <div class="analytics-section">
       <div class="analytics-card">
         <div class="analytics-title">Ore Attive per Giorno (Totale)</div>
+        <div id="totalHoursBadge" class="total-counter-badge">⏱️ TOTALE REGISTRATO: 0h 0m</div>
         <canvas id="barChartDays"></canvas>
       </div>
+      
       <div class="analytics-card">
         <div class="analytics-title">Ripartizione Utilizzo Complessiva per Fasce</div>
         <canvas id="pieChartFasce"></canvas>
         
-        <!-- LEGGENDA CON SIMBOLI MINIMAL IN ORDINE: MATTINO, POMERIGGIO, SERA, NOTTE -->
         <div class="symbols-legend">
           <div class="legend-item">
             <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#9fe2fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -371,7 +388,6 @@
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    // TAVOLOZZA COLORI PERSONALIZZATA
     const COLOR_INATTIVO = "#787878";   // GRIGIO CHIARO
     const COLOR_NOTTE = "#00184d";      // BLU NOTTE SCURO (00:00 - 06:00)
     const COLOR_MATTINA = "#9fe2fc";    // AZZURRO CHIARO (06:00 - 12:00)
@@ -497,7 +513,23 @@
 
     function renderAnalyticsCharts(dates, dailyMap) {
       const labelsDays = dates;
-      const dataHoursDays = dates.map(d => (dailyMap[d] ? (dailyMap[d].totalMins / 60).toFixed(1) : 0));
+      let globalMinutesSum = 0;
+
+      const dataHoursDays = dates.map(d => {
+        if (dailyMap[d]) {
+          globalMinutesSum += dailyMap[d].totalMins;
+          return (dailyMap[d].totalMins / 60).toFixed(1);
+        }
+        return 0;
+      });
+
+      // AGGIORNAMENTO CONTATORE TOTALE ORE
+      const totalHrs = Math.floor(globalMinutesSum / 60);
+      const totalMins = globalMinutesSum % 60;
+      const counterElem = document.getElementById("totalHoursBadge");
+      if (counterElem) {
+        counterElem.innerHTML = `⏱️ TOTALE REGISTRATO: <strong>${totalHrs}h ${totalMins}m</strong> (${(globalMinutesSum/60).toFixed(1)} Ore Complessive)`;
+      }
 
       if (barChartInstance) barChartInstance.destroy();
       const ctxBar = document.getElementById('barChartDays').getContext('2d');
