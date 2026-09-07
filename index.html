@@ -178,35 +178,23 @@
       flex-direction: column;
       align-items: center;
       min-width: 0;
-      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .day-column:hover {
+      transform: translateY(-4px);
+      border-color: #38ef7d;
+      box-shadow: 0 8px 20px rgba(56, 239, 125, 0.15);
     }
     .day-column.empty {
       opacity: 0.45;
       border-style: dashed;
+      cursor: default;
     }
-    .day-column.offline-warning {
-      border-color: #ff4d4d;
-      box-shadow: 0 0 10px rgba(255, 77, 77, 0.2);
-    }
-
-    .status-pill {
-      font-size: 0.65rem;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 12px;
-      text-transform: uppercase;
-      margin-top: 4px;
-      letter-spacing: 0.5px;
-    }
-    .status-online {
-      background: rgba(56, 239, 125, 0.15);
-      color: #38ef7d;
-      border: 1px solid #38ef7d;
-    }
-    .status-offline {
-      background: rgba(255, 77, 77, 0.15);
-      color: #ff4d4d;
-      border: 1px solid #ff4d4d;
+    .day-column.empty:hover {
+      transform: none;
+      border-color: #1f2733;
+      box-shadow: none;
     }
 
     .day-name-header {
@@ -214,13 +202,13 @@
       font-weight: 800;
       color: #58a6ff;
       text-transform: uppercase;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       letter-spacing: 1px;
     }
     .day-date-sub {
       font-size: 0.75rem;
       color: #788ba6;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       font-weight: 600;
     }
 
@@ -264,6 +252,133 @@
     }
     .ts-val-sm {
       font-weight: bold;
+    }
+
+    /* MODAL POPUP PER INGRANDIMENTO E DETTAGLIO MINUTI */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 14, 20, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .modal-card {
+      background: #121721;
+      border: 1px solid #212936;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 30px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      position: relative;
+    }
+    .modal-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: #1a212d;
+      border: 1px solid #2a3446;
+      color: #e1e6ed;
+      font-size: 1.2rem;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .modal-close-btn:hover {
+      background: #ff4d4d;
+      color: #ffffff;
+      border-color: #ff4d4d;
+    }
+
+    .modal-header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    .modal-title {
+      font-size: 1.4rem;
+      color: #38ef7d;
+      font-weight: 800;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .modal-subtitle {
+      font-size: 0.95rem;
+      color: #788ba6;
+    }
+
+    .modal-body-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+      align-items: center;
+    }
+    .chart-container-lg {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin: 0 auto;
+    }
+    .chart-center-text-lg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffffff;
+      text-align: center;
+    }
+
+    .modal-stats-box {
+      background: #0b0e14;
+      border: 1px solid #1f2733;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-stat-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #1a212d;
+      padding-bottom: 8px;
+    }
+    .modal-stat-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .minute-section {
+      margin-top: 30px;
+      background: #0b0e14;
+      border: 1px solid #1f2733;
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .minute-title {
+      font-size: 0.95rem;
+      color: #58a6ff;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      text-align: center;
+      letter-spacing: 0.5px;
     }
 
     .loading-state {
@@ -321,22 +436,50 @@
     <div id="weeksGrid"></div>
   </div>
 
+  <!-- POPUP MODAL DETTAGLIO OROLOGIO E MINUTI -->
+  <div id="modalOverlay" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <button class="modal-close-btn" onclick="closeModalForce()">✕</button>
+      
+      <div class="modal-header">
+        <div id="modalTitle" class="modal-title">DETTAGLIO GIORNO</div>
+        <div id="modalSubtitle" class="modal-subtitle">Tracciamento attività in alta risoluzione</div>
+      </div>
+
+      <div class="modal-body-grid">
+        <div class="chart-container-lg">
+          <canvas id="clockLgCanvas"></canvas>
+          <div id="modalCenterText" class="chart-center-text-lg">0h 0m</div>
+        </div>
+
+        <div id="modalStatsBox" class="modal-stats-box"></div>
+      </div>
+
+      <!-- GRAFICO DI DETTAGLIO AD ALTA RISOLUZIONE SUI 1.440 MINUTI DELLA GIORNATA -->
+      <div class="minute-section">
+        <div class="minute-title">Dettaglio Attività al Minuto (1.440 Minuti / 24 Ore)</div>
+        <canvas id="minuteChartCanvas" style="max-height: 180px;"></canvas>
+      </div>
+    </div>
+  </div>
+
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    // TAVOLOZZA COLORI
+    // TAVOLOZZA COLORI PERSONALIZZATA
     const COLOR_INATTIVO = "#787878";   // GRIGIO CHIARO
     const COLOR_NOTTE = "#00184d";      // BLU NOTTE SCURO (00:00 - 06:00)
     const COLOR_MATTINA = "#9fe2fc";    // AZZURRO CHIARO (06:00 - 12:00)
     const COLOR_POMERIGGIO = "#ffd70f"; // GIALLO ARANCIO (12:00 - 18:00)
     const COLOR_SERA = "#0f6fff";       // BLU INTENSO (18:00 - 24:00)
 
-    const TIMEOUT_MINUTI_INATTIVO = 3; // Dopo 3 minuti senza PING segnala INATTIVO
-
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
     let barChartInstance = null;
     let pieChartInstance = null;
+    let clockLgInstance = null;
+    let minuteChartInstance = null;
+
     let cachedDailyMap = {};
     let cachedSortedDates = [];
 
@@ -350,16 +493,24 @@
       document.body.appendChild(script);
     }
 
-    function parseHour(timeStr) {
+    function parseTimeToMinutes(timeStr) {
       if (!timeStr) return -1;
       let str = String(timeStr).trim();
       if (str.includes("T")) str = str.split("T")[1];
       const parts = str.split(":");
-      if (parts.length >= 1) {
+      if (parts.length >= 2) {
         const h = parseInt(parts[0], 10);
-        if (!isNaN(h) && h >= 0 && h < 24) return h;
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m) && h >= 0 && h < 24 && m >= 0 && m < 60) {
+          return h * 60 + m;
+        }
       }
       return -1;
+    }
+
+    function parseHour(timeStr) {
+      const m = parseTimeToMinutes(timeStr);
+      return m !== -1 ? Math.floor(m / 60) : -1;
     }
 
     function parseDate(dateVal) {
@@ -383,27 +534,6 @@
       return `${year}-${month}-${day}`;
     }
 
-    // Verifica se l'ultimo PING è scaduto oltre la soglia di inattività
-    function checkIsOffline(lastSignalStr, dateStr) {
-      if (!lastSignalStr) return true;
-
-      const todayStr = formatDateStandard(new Date());
-      // Se il giorno del log non è oggi, consideriamo la sessione chiusa normalmente
-      if (dateStr !== todayStr) return false;
-
-      const parts = lastSignalStr.split(":");
-      if (parts.length < 2) return true;
-
-      const now = new Date();
-      const lastPingDate = new Date();
-      lastPingDate.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2] || 0, 10));
-
-      const diffMs = now.getTime() - lastPingDate.getTime();
-      const diffMins = diffMs / (1000 * 60);
-
-      return diffMins > TIMEOUT_MINUTI_INATTIVO;
-    }
-
     function processAndRender(data) {
       document.getElementById("loading").style.display = "none";
       document.getElementById("analyticsWrapper").style.display = "block";
@@ -422,6 +552,7 @@
           if (!cachedDailyMap[rowDate]) {
             cachedDailyMap[rowDate] = {
               hourly: new Array(24).fill(false),
+              minuteArray: new Array(1440).fill(false), // 1.440 Minuti della giornata
               totalMins: 0,
               firstOn: startTimeStr,
               lastSignal: endTimeStr
@@ -437,13 +568,24 @@
 
           cachedDailyMap[rowDate].totalMins += activeMins;
 
+          // Mappatura Ore per l'orologio sintetico
           const startHour = parseHour(startTimeStr);
           const endHour = parseHour(endTimeStr);
-
           if (startHour !== -1 && endHour !== -1) {
             for (let h = startHour; h <= endHour; h++) {
               if (h >= 0 && h < 24) {
                 cachedDailyMap[rowDate].hourly[h] = true;
+              }
+            }
+          }
+
+          // Mappatura Minuto per Minuto per la massima risoluzione
+          const startMin = parseTimeToMinutes(startTimeStr);
+          const endMin = parseTimeToMinutes(endTimeStr);
+          if (startMin !== -1 && endMin !== -1) {
+            for (let m = startMin; m <= endMin; m++) {
+              if (m >= 0 && m < 1440) {
+                cachedDailyMap[rowDate].minuteArray[m] = true;
               }
             }
           }
@@ -614,20 +756,14 @@
           if (dayData) {
             const hrs = Math.floor(dayData.totalMins / 60);
             const mins = dayData.totalMins % 60;
-            const isOffline = checkIsOffline(dayData.lastSignal, currentDayStr);
 
             weekHTML += `
-              <div class="day-column ${isOffline ? 'offline-warning' : ''}">
+              <div class="day-column" onclick="openModalForDay('${currentDayStr}', '${dayName}')">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="status-pill ${isOffline ? 'status-offline' : 'status-online'}">
-                  ${isOffline ? '⚠️ INATTIVO' : '🟢 ATTIVO'}
-                </div>
-                <div class="chart-container-sm" style="margin-top: 6px;">
+                <div class="chart-container-sm">
                   <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
-                  <div class="chart-center-text-sm">
-                    ${hrs}h ${mins}m
-                  </div>
+                  <div class="chart-center-text-sm">${hrs}h ${mins}m</div>
                 </div>
                 <div class="ts-box-sm">
                   <div class="ts-row">
@@ -636,7 +772,7 @@
                   </div>
                   <div class="ts-row">
                     <span class="ts-label-sm">📡 SIG:</span>
-                    <span class="ts-val-sm" style="color: ${isOffline ? '#ff4d4d' : '#58a6ff'};">${dayData.lastSignal ? dayData.lastSignal.substring(0, 5) : "--:--"}</span>
+                    <span class="ts-val-sm" style="color: #58a6ff;">${dayData.lastSignal ? dayData.lastSignal.substring(0, 5) : "--:--"}</span>
                   </div>
                 </div>
               </div>
@@ -646,10 +782,7 @@
               <div class="day-column empty">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="status-pill" style="background: rgba(120,120,120,0.1); color: #787878; border: 1px solid #787878;">
-                  OFF
-                </div>
-                <div class="chart-container-sm" style="margin-top: 6px;">
+                <div class="chart-container-sm">
                   <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                   <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
                 </div>
@@ -690,6 +823,156 @@
           );
         }
       });
+    }
+
+    // --- LOGICA MODAL POPUP E GRAFICO MINUTO PER MINUTO ---
+    function openModalForDay(dateStr, dayName) {
+      const dayData = cachedDailyMap[dateStr];
+      if (!dayData) return;
+
+      document.getElementById("modalTitle").innerText = `${dayName} - ${dateStr}`;
+      
+      const hrs = Math.floor(dayData.totalMins / 60);
+      const mins = dayData.totalMins % 60;
+      document.getElementById("modalCenterText").innerText = `${hrs}h ${mins}m`;
+
+      // Conteggio minuti per fascia
+      let countNotte = 0, countMattina = 0, countPomeriggio = 0, countSera = 0;
+      dayData.minuteArray.forEach((isActive, m) => {
+        if (isActive) {
+          if (m >= 0 && m < 360) countNotte++;
+          else if (m >= 360 && m < 720) countMattina++;
+          else if (m >= 720 && m < 1080) countPomeriggio++;
+          else countSera++;
+        }
+      });
+
+      document.getElementById("modalStatsBox").innerHTML = `
+        <div class="modal-stat-item">
+          <span style="color: #788ba6; font-weight: 600;">⏱️ Tempo Totale Attivo:</span>
+          <span style="color: #38ef7d; font-weight: bold;">${hrs} ore e ${mins} minuti</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: #788ba6; font-weight: 600;">🟢 Prima Accensione:</span>
+          <span style="color: #38ef7d; font-weight: bold;">${dayData.firstOn || "--:--:--"}</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: #788ba6; font-weight: 600;">📡 Ultimo Segnale:</span>
+          <span style="color: #58a6ff; font-weight: bold;">${dayData.lastSignal || "--:--:--"}</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: ${COLOR_NOTTE}; font-weight: 600;">🌙 Notte (00-06):</span>
+          <span style="font-weight: bold;">${countNotte} min</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: ${COLOR_MATTINA}; font-weight: 600;">🌅 Mattina (06-12):</span>
+          <span style="font-weight: bold;">${countMattina} min</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: ${COLOR_POMERIGGIO}; font-weight: 600;">☀️ Pomeriggio (12-18):</span>
+          <span style="font-weight: bold;">${countPomeriggio} min</span>
+        </div>
+        <div class="modal-stat-item">
+          <span style="color: ${COLOR_SERA}; font-weight: 600;">🌆 Sera (18-24):</span>
+          <span style="font-weight: bold;">${countSera} min</span>
+        </div>
+      `;
+
+      // Render Orologio Ingrandito
+      if (clockLgInstance) clockLgInstance.destroy();
+      const ctxLg = document.getElementById("clockLgCanvas").getContext("2d");
+      const colors24 = dayData.hourly.map((a, h) => {
+        if (!a) return COLOR_INATTIVO;
+        if (h >= 0 && h < 6) return COLOR_NOTTE;
+        if (h >= 6 && h < 12) return COLOR_MATTINA;
+        if (h >= 12 && h < 18) return COLOR_POMERIGGIO;
+        return COLOR_SERA;
+      });
+
+      clockLgInstance = new Chart(ctxLg, {
+        type: 'doughnut',
+        data: {
+          labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
+          datasets: [{
+            data: new Array(24).fill(1),
+            backgroundColor: colors24,
+            borderWidth: 2,
+            borderColor: '#0b0e14'
+          }]
+        },
+        options: {
+          cutout: '72%',
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Render Grafico a Barre Minuto per Minuto (1.440 barre)
+      if (minuteChartInstance) minuteChartInstance.destroy();
+      const ctxMin = document.getElementById("minuteChartCanvas").getContext("2d");
+
+      const minuteLabels = Array.from({length: 1440}, (_, i) => {
+        const hh = String(Math.floor(i / 60)).padStart(2, '0');
+        const mm = String(i % 60).padStart(2, '0');
+        return `${hh}:${mm}`;
+      });
+
+      const minuteDataValues = dayData.minuteArray.map(a => a ? 1 : 0);
+      const minuteColors = dayData.minuteArray.map((a, m) => {
+        if (!a) return '#1a212d';
+        if (m < 360) return COLOR_NOTTE;
+        if (m < 720) return COLOR_MATTINA;
+        if (m < 1080) return COLOR_POMERIGGIO;
+        return COLOR_SERA;
+      });
+
+      minuteChartInstance = new Chart(ctxMin, {
+        type: 'bar',
+        data: {
+          labels: minuteLabels,
+          datasets: [{
+            data: minuteDataValues,
+            backgroundColor: minuteColors,
+            barPercentage: 1.0,
+            categoryPercentage: 1.0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.raw === 1 ? ' Attivo' : ' Inattivo';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: '#788ba6',
+                maxTicksLimit: 24,
+                callback: function(val, index) {
+                  return index % 60 === 0 ? `${Math.floor(index / 60).toString().padStart(2, '0')}:00` : '';
+                }
+              },
+              grid: { color: '#1a212d' }
+            },
+            y: { display: false }
+          }
+        }
+      });
+
+      document.getElementById("modalOverlay").style.display = "flex";
+    }
+
+    function closeModal(e) {
+      if (e.target.id === "modalOverlay") closeModalForce();
+    }
+
+    function closeModalForce() {
+      document.getElementById("modalOverlay").style.display = "none";
     }
 
     loadDataFromDrive();
