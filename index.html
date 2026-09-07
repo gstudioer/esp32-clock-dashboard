@@ -76,9 +76,11 @@
       border-radius: 16px;
       padding: 25px;
       width: 90%;
-      max-width: 500px;
+      max-width: 520px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.8);
       position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .modal-header {
       display: flex;
@@ -152,6 +154,44 @@
       cursor: pointer;
       font-size: 0.75rem;
     }
+
+    /* DETTAGLIO AL MINUTO NEL POPUP */
+    .minute-details-box {
+      margin-top: 15px;
+      background: #0b0e14;
+      border: 1px solid #212936;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: left;
+    }
+    .minute-title {
+      font-size: 0.85rem;
+      color: #58a6ff;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .minute-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+    .minute-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-bottom: 1px solid #1a212d;
+      color: #e1e6ed;
+    }
+    .minute-item:last-child { border-bottom: none; }
+    .minute-time { color: #38ef7d; font-weight: bold; }
+    .minute-dur { color: #ffd70f; }
 
     .filter-container {
       width: 100%;
@@ -481,18 +521,28 @@
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO OROLOGIO -->
+  <!-- MODALE DETTAGLIO OROLOGIO (CON DETTAGLIO AL MINUTO) -->
   <div id="clockDetailModal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 450px; text-align: center;">
+    <div class="modal-content">
       <div class="modal-header">
         <span class="modal-title" id="modalClockDate">Dettaglio Orologio</span>
         <button class="close-btn" onclick="closeClockModal()">&times;</button>
       </div>
-      <div style="position: relative; width: 220px; height: 220px; margin: 15px auto;">
+      
+      <div style="position: relative; width: 200px; height: 200px; margin: 10px auto;">
         <canvas id="modalClockCanvas"></canvas>
         <div id="modalClockCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.1rem; color: #fff;"></div>
       </div>
-      <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 15px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
+      
+      <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
+
+      <!-- SEZIONE DETTAGLIO AL MINUTO -->
+      <div class="minute-details-box">
+        <div class="minute-title">
+          <span>⏱️ Dettaglio Sessioni al Minuto</span>
+        </div>
+        <ul id="minuteDetailsList" class="minute-list"></ul>
+      </div>
     </div>
   </div>
 
@@ -580,7 +630,6 @@
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
-    // ELENCO OPZIONI SENZA PRESET (solo 'Nessuno' predefinito)
     let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno"];
     let hourlyEventAssignments = JSON.parse(localStorage.getItem("esp32_hourly_events")) || {};
 
@@ -664,7 +713,6 @@
             customEventOptions.splice(targetIndex, 1);
             localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
 
-            // Rimuovi l'associazione se la voce eliminata era assegnata a qualche ora
             Object.keys(hourlyEventAssignments).forEach(d => {
               Object.keys(hourlyEventAssignments[d]).forEach(h => {
                 if (hourlyEventAssignments[d][h] === optionToDelete) {
@@ -725,6 +773,24 @@
       }
 
       document.getElementById("modalClockStats").innerHTML = statsHTML;
+
+      // COMPILAZIONE DETTAGLIO AL MINUTO PER IL POPUP
+      const minuteListElem = document.getElementById("minuteDetailsList");
+      minuteListElem.innerHTML = "";
+
+      if (dayData && dayData.sessions && dayData.sessions.length > 0) {
+        dayData.sessions.forEach(sess => {
+          const li = document.createElement("li");
+          li.className = "minute-item";
+          li.innerHTML = `
+            <span>Sessione: <span class="minute-time">${sess.start} &rarr; ${sess.end}</span></span>
+            <span class="minute-dur">${sess.mins} min</span>
+          `;
+          minuteListElem.appendChild(li);
+        });
+      } else {
+        minuteListElem.innerHTML = `<li class="minute-item" style="color: #788ba6; justify-content: center;">Nessuna sessione registrata.</li>`;
+      }
 
       let colors24 = new Array(24).fill(COLOR_INATTIVO);
       if (dayData) {
@@ -831,7 +897,8 @@
               hourly: new Array(24).fill(false),
               totalMins: 0,
               firstOn: startTimeStr,
-              lastSignal: endTimeStr
+              lastSignal: endTimeStr,
+              sessions: []
             };
           }
 
@@ -843,6 +910,15 @@
           }
 
           cachedDailyMap[rowDate].totalMins += activeMins;
+
+          // REGISTRA LA SINGOLA SESSIONE PER IL DETTAGLIO AL MINUTO
+          if (startTimeStr && endTimeStr) {
+            cachedDailyMap[rowDate].sessions.push({
+              start: startTimeStr.substring(0, 5),
+              end: endTimeStr.substring(0, 5),
+              mins: activeMins
+            });
+          }
 
           const startHour = parseHour(startTimeStr);
           const endHour = parseHour(endTimeStr);
@@ -1055,7 +1131,7 @@
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
                 
-                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per ingrandire il dettaglio dell'orologio">
+                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio al minuto">
                   <div class="chart-container-sm">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm">
