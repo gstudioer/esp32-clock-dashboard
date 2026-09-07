@@ -148,13 +148,12 @@
     <h1>ESP32 - Monitor & Analytics Attività</h1>
     <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
     
-    <!-- Link diretto alla scheda RAW_LOGS (gid=211746529) -->
     <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?gid=211746529#gid=211746529" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
       📊 APRI FOGLIO RAW_LOGS
     </a>
   </header>
 
-  <div id="loading" class="loading-state">Connessione e caricamento dati dal foglio RAW_LOGS in corso...</div>
+  <div id="loading" class="loading-state">Connessione e caricamento dati in corso...</div>
 
   <div id="analyticsWrapper" style="display: none;">
     <div class="analytics-section">
@@ -173,7 +172,7 @@
   </div>
 
   <script>
-    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true&gid=211746529";
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
     let barChartInstance = null;
     let pieChartInstance = null;
@@ -246,10 +245,10 @@
 
       const sortedDates = Object.keys(dailyMap).sort();
 
-      // 1. Render Grafici
+      // 1. Generazione Grafici
       renderAnalyticsCharts(sortedDates, dailyMap);
 
-      // 2. Render Orologi 24H
+      // 2. Generazione Orologi
       renderClockCards(sortedDates.slice().reverse(), dailyMap);
     }
 
