@@ -16,7 +16,7 @@
     }
     header {
       text-align: center;
-      margin-bottom: 35px;
+      margin-bottom: 25px;
     }
     h1 {
       font-size: 1.8rem;
@@ -51,6 +51,54 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
+    /* Sezione Filtro Calendario */
+    .filter-container {
+      max-width: 1300px;
+      margin: 0 auto 30px auto;
+      background: #121721;
+      border: 1px solid #212936;
+      border-radius: 16px;
+      padding: 15px 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .filter-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #58a6ff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .date-input {
+      background: #0b0e14;
+      border: 1px solid #2a3446;
+      color: #38ef7d;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      color-scheme: dark;
+    }
+    .reset-btn {
+      background: #1a212d;
+      border: 1px solid #2a3446;
+      color: #e1e6ed;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .reset-btn:hover {
+      background: #212936;
+      color: #38ef7d;
+    }
+
     .analytics-section {
       max-width: 1300px;
       margin: 0 auto 40px auto;
@@ -206,6 +254,12 @@
       color: #788ba6;
       margin-top: 50px;
     }
+    .no-data-msg {
+      text-align: center;
+      color: #788ba6;
+      padding: 30px;
+      font-size: 1.1rem;
+    }
   </style>
 </head>
 <body>
@@ -218,6 +272,12 @@
       📊 APRI FOGLIO RAW_LOGS
     </a>
   </header>
+
+  <div class="filter-container">
+    <span class="filter-label">📅 Filtra per Data:</span>
+    <input type="date" id="datePicker" class="date-input" onchange="applyFilter()">
+    <button class="reset-btn" onclick="resetFilter()">MOSTRA TUTTI I GIORNI</button>
+  </div>
 
   <div id="loading" class="loading-state">Connessione e caricamento dati in corso...</div>
 
@@ -242,6 +302,8 @@
 
     let barChartInstance = null;
     let pieChartInstance = null;
+    let cachedDailyMap = {};
+    let cachedSortedDates = [];
 
     function loadDataFromDrive() {
       const oldScript = document.getElementById('jsonp-script');
@@ -278,7 +340,7 @@
 
       if (!data || !Array.isArray(data) || data.length < 2) return;
 
-      const dailyMap = {};
+      cachedDailyMap = {};
 
       for (let i = 1; i < data.length; i++) {
         const rowDate = parseDate(data[i][0]);
@@ -287,14 +349,14 @@
         const activeMins = parseInt(data[i][3], 10) || 0;
 
         if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
-          if (!dailyMap[rowDate]) {
-            dailyMap[rowDate] = {
+          if (!cachedDailyMap[rowDate]) {
+            cachedDailyMap[rowDate] = {
               hourly: new Array(24).fill(false),
               totalMins: 0
             };
           }
 
-          dailyMap[rowDate].totalMins += activeMins;
+          cachedDailyMap[rowDate].totalMins += activeMins;
 
           const startHour = parseHour(startTimeStr);
           const endHour = parseHour(endTimeStr);
@@ -302,22 +364,39 @@
           if (startHour !== -1 && endHour !== -1) {
             for (let h = startHour; h <= endHour; h++) {
               if (h >= 0 && h < 24) {
-                dailyMap[rowDate].hourly[h] = true;
+                cachedDailyMap[rowDate].hourly[h] = true;
               }
             }
           }
         }
       }
 
-      const sortedDates = Object.keys(dailyMap).sort();
+      cachedSortedDates = Object.keys(cachedDailyMap).sort();
 
-      renderAnalyticsCharts(sortedDates, dailyMap);
-      renderClockCards(sortedDates.slice().reverse(), dailyMap);
+      // Applica il filtro (di default mostra tutti i giorni)
+      applyFilter();
+    }
+
+    function applyFilter() {
+      const selectedDate = document.getElementById("datePicker").value;
+      let filteredDates = cachedSortedDates;
+
+      if (selectedDate) {
+        filteredDates = cachedSortedDates.filter(d => d === selectedDate);
+      }
+
+      renderAnalyticsCharts(filteredDates, cachedDailyMap);
+      renderClockCards(filteredDates.slice().reverse(), cachedDailyMap);
+    }
+
+    function resetFilter() {
+      document.getElementById("datePicker").value = "";
+      applyFilter();
     }
 
     function renderAnalyticsCharts(dates, dailyMap) {
       const labelsDays = dates;
-      const dataHoursDays = dates.map(d => (dailyMap[d].totalMins / 60).toFixed(1));
+      const dataHoursDays = dates.map(d => (dailyMap[d] ? (dailyMap[d].totalMins / 60).toFixed(1) : 0));
 
       if (barChartInstance) barChartInstance.destroy();
       const ctxBar = document.getElementById('barChartDays').getContext('2d');
@@ -345,14 +424,16 @@
       let notte = 0, mattina = 0, pomeriggio = 0, sera = 0;
 
       dates.forEach(d => {
-        dailyMap[d].hourly.forEach((isActive, hour) => {
-          if (isActive) {
-            if (hour >= 0 && hour < 6) notte++;
-            else if (hour >= 6 && hour < 12) mattina++;
-            else if (hour >= 12 && hour < 18) pomeriggio++;
-            else sera++;
-          }
-        });
+        if (dailyMap[d]) {
+          dailyMap[d].hourly.forEach((isActive, hour) => {
+            if (isActive) {
+              if (hour >= 0 && hour < 6) notte++;
+              else if (hour >= 6 && hour < 12) mattina++;
+              else if (hour >= 12 && hour < 18) pomeriggio++;
+              else sera++;
+            }
+          });
+        }
       });
 
       if (pieChartInstance) pieChartInstance.destroy();
@@ -411,8 +492,15 @@
       const grid = document.getElementById("clocksGrid");
       grid.innerHTML = "";
 
+      if (datesReversed.length === 0) {
+        grid.innerHTML = `<div class="no-data-msg">Nessun dato di attività registrato per la data selezionata.</div>`;
+        return;
+      }
+
       datesReversed.forEach((dateKey, index) => {
         const dayData = dailyMap[dateKey];
+        if (!dayData) return;
+
         const hrs = Math.floor(dayData.totalMins / 60);
         const mins = dayData.totalMins % 60;
 
@@ -485,7 +573,6 @@
         `;
         grid.appendChild(dayCard);
 
-        // Rendering sicuro di ciascun grafico dopo che l'HTML è stato iniettato nel DOM
         const colors24 = dayData.hourly.map(a => a ? '#38ef7d' : '#1a212d');
         createDoughnutSafely(`clock24_${index}`, colors24, Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`));
 
