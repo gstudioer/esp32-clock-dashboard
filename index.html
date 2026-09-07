@@ -51,6 +51,7 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
+    /* Sezione Analisi Generale */
     .analytics-section {
       max-width: 1300px;
       margin: 0 auto 40px auto;
@@ -75,6 +76,7 @@
       text-align: center;
     }
 
+    /* Griglia Orologi e Schede Giornaliere */
     .section-title {
       max-width: 1300px;
       margin: 0 auto 20px auto;
@@ -86,36 +88,71 @@
       letter-spacing: 1px;
     }
     .grid-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
       max-width: 1300px;
       margin: 0 auto;
     }
-    .clock-card {
+    .day-card {
       background: #121721;
       border: 1px solid #212936;
       border-radius: 20px;
-      padding: 25px 20px;
+      padding: 25px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.5);
-      text-align: center;
+    }
+    .day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      border-bottom: 1px solid #1a212d;
+      padding-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .date-badge {
-      display: inline-block;
       background: #1a212d;
       color: #58a6ff;
       border: 1px solid #2a3446;
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 20px;
-      font-size: 0.9rem;
+      font-size: 1rem;
       font-weight: 700;
-      margin-bottom: 20px;
       letter-spacing: 1px;
+    }
+    .day-total-badge {
+      color: #38ef7d;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    /* Layout Triplo Orologio */
+    .clocks-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    .clock-box {
+      background: #0b0e14;
+      border: 1px solid #1f2733;
+      border-radius: 16px;
+      padding: 15px;
+      text-align: center;
+    }
+    .clock-title {
+      font-size: 0.85rem;
+      color: #788ba6;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
     }
     .chart-container {
       position: relative;
-      width: 220px;
-      height: 220px;
+      width: 180px;
+      height: 180px;
       margin: 0 auto;
     }
     .chart-center-text {
@@ -123,17 +160,50 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 1.3rem;
+      font-size: 1.1rem;
       font-weight: bold;
       color: #ffffff;
-      text-shadow: 0 0 10px rgba(255,255,255,0.2);
+      text-shadow: 0 0 8px rgba(255,255,255,0.2);
     }
-    .chart-center-subtext {
-      font-size: 0.7rem;
+
+    /* Dettaglio Fasce Orarie */
+    .fasce-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      background: #0b0e14;
+      border-radius: 12px;
+      padding: 15px;
+      border: 1px solid #1f2733;
+    }
+    .fascia-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .fascia-label {
+      font-size: 0.78rem;
       color: #788ba6;
       text-transform: uppercase;
+      font-weight: 600;
+    }
+    .fascia-val {
+      font-size: 1rem;
+      color: #e1e6ed;
+      font-weight: bold;
+    }
+    .fascia-bar-bg {
+      height: 6px;
+      background: #1a212d;
+      border-radius: 3px;
+      overflow: hidden;
       margin-top: 2px;
     }
+    .fascia-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+
     .loading-state {
       text-align: center;
       font-size: 1.1rem;
@@ -161,216 +231,4 @@
         <div class="analytics-title">Ore Attive per Giorno (Totale)</div>
         <canvas id="barChartDays"></canvas>
       </div>
-      <div class="analytics-card">
-        <div class="analytics-title">Ripartizione Utilizzo per Fasce Orarie</div>
-        <canvas id="pieChartFasce"></canvas>
-      </div>
-    </div>
-
-    <div class="section-title">Orologi Giornalieri (24 Ore)</div>
-    <div id="clocksGrid" class="grid-container"></div>
-  </div>
-
-  <script>
-    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
-
-    let barChartInstance = null;
-    let pieChartInstance = null;
-
-    function loadDataFromDrive() {
-      const oldScript = document.getElementById('jsonp-script');
-      if (oldScript) oldScript.remove();
-
-      const script = document.createElement('script');
-      script.id = 'jsonp-script';
-      script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
-      document.body.appendChild(script);
-    }
-
-    function parseHour(timeStr) {
-      if (!timeStr) return -1;
-      let str = String(timeStr).trim();
-      if (str.includes("T")) str = str.split("T")[1];
-      const parts = str.split(":");
-      if (parts.length >= 1) {
-        const h = parseInt(parts[0], 10);
-        if (!isNaN(h) && h >= 0 && h < 24) return h;
-      }
-      return -1;
-    }
-
-    function parseDate(dateVal) {
-      if (!dateVal) return "";
-      let str = String(dateVal).trim();
-      if (str.includes("T")) str = str.split("T")[0];
-      return str;
-    }
-
-    function processAndRender(data) {
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("analyticsWrapper").style.display = "block";
-
-      if (!data || !Array.isArray(data) || data.length < 2) return;
-
-      const dailyMap = {};
-
-      for (let i = 1; i < data.length; i++) {
-        const rowDate = parseDate(data[i][0]);
-        const startTimeStr = String(data[i][1] || "");
-        const endTimeStr = String(data[i][2] || "");
-        const activeMins = parseInt(data[i][3], 10) || 0;
-
-        if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
-          if (!dailyMap[rowDate]) {
-            dailyMap[rowDate] = {
-              hourly: new Array(24).fill(false),
-              totalMins: 0
-            };
-          }
-
-          dailyMap[rowDate].totalMins += activeMins;
-
-          const startHour = parseHour(startTimeStr);
-          const endHour = parseHour(endTimeStr);
-
-          if (startHour !== -1 && endHour !== -1) {
-            for (let h = startHour; h <= endHour; h++) {
-              if (h >= 0 && h < 24) {
-                dailyMap[rowDate].hourly[h] = true;
-              }
-            }
-          }
-        }
-      }
-
-      const sortedDates = Object.keys(dailyMap).sort();
-
-      // 1. Generazione Grafici
-      renderAnalyticsCharts(sortedDates, dailyMap);
-
-      // 2. Generazione Orologi
-      renderClockCards(sortedDates.slice().reverse(), dailyMap);
-    }
-
-    function renderAnalyticsCharts(dates, dailyMap) {
-      const labelsDays = dates;
-      const dataHoursDays = dates.map(d => (dailyMap[d].totalMins / 60).toFixed(1));
-
-      if (barChartInstance) barChartInstance.destroy();
-      const ctxBar = document.getElementById('barChartDays').getContext('2d');
-      barChartInstance = new Chart(ctxBar, {
-        type: 'bar',
-        data: {
-          labels: labelsDays,
-          datasets: [{
-            label: 'Ore Attive',
-            data: dataHoursDays,
-            backgroundColor: '#38ef7d',
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
-            y: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } }
-          }
-        }
-      });
-
-      let notte = 0, mattina = 0, pomeriggio = 0, sera = 0;
-
-      dates.forEach(d => {
-        dailyMap[d].hourly.forEach((isActive, hour) => {
-          if (isActive) {
-            if (hour >= 0 && hour < 6) notte++;
-            else if (hour >= 6 && hour < 12) mattina++;
-            else if (hour >= 12 && hour < 18) pomeriggio++;
-            else sera++;
-          }
-        });
-      });
-
-      if (pieChartInstance) pieChartInstance.destroy();
-      const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
-      pieChartInstance = new Chart(ctxPie, {
-        type: 'pie',
-        data: {
-          labels: ['Notte (00-06)', 'Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)'],
-          datasets: [{
-            data: [notte, mattina, pomeriggio, sera],
-            backgroundColor: ['#11998e', '#38ef7d', '#58a6ff', '#d29922']
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { labels: { color: '#e1e6ed' } }
-          }
-        }
-      });
-    }
-
-    function renderClockCards(datesReversed, dailyMap) {
-      const grid = document.getElementById("clocksGrid");
-      grid.innerHTML = "";
-
-      datesReversed.forEach((dateKey, index) => {
-        const dayData = dailyMap[dateKey];
-        const hrs = Math.floor(dayData.totalMins / 60);
-        const mins = dayData.totalMins % 60;
-
-        const card = document.createElement("div");
-        card.className = "clock-card";
-        card.innerHTML = `
-          <div class="date-badge">GIORNO: ${dateKey}</div>
-          <div class="chart-container">
-            <canvas id="clockCanvas_${index}"></canvas>
-            <div class="chart-center-text">
-              ${hrs}h ${mins}m
-              <div class="chart-center-subtext">Tempo Attivo</div>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-
-        const bgColors = dayData.hourly.map(isActive => isActive ? '#38ef7d' : '#1a212d');
-        const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
-
-        const ctx = document.getElementById(`clockCanvas_${index}`).getContext('2d');
-        new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: labels,
-            datasets: [{
-              data: new Array(24).fill(1),
-              backgroundColor: bgColors,
-              borderWidth: 2,
-              borderColor: '#121721'
-            }]
-          },
-          options: {
-            cutout: '72%',
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: function(ctx) {
-                    const hour = ctx.dataIndex;
-                    const status = dayData.hourly[hour] ? "ATTIVO" : "INATTIVO";
-                    return ` Ora ${hour}:00 - Status: ${status}`;
-                  }
-                }
-              }
-            }
-          }
-        });
-      });
-    }
-
-    loadDataFromDrive();
-    setInterval(loadDataFromDrive, 30000);
-  </script>
-</body>
-</html>
+      <div class="analytics-card
