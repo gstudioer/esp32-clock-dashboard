@@ -140,16 +140,6 @@
       color: #788ba6;
       margin-top: 50px;
     }
-    .error-state {
-      color: #f85149;
-      border: 1px solid #f85149;
-      background: rgba(248, 81, 73, 0.1);
-      padding: 15px;
-      border-radius: 12px;
-      max-width: 600px;
-      margin: 30px auto;
-      text-align: center;
-    }
   </style>
 </head>
 <body>
@@ -163,7 +153,7 @@
     </a>
   </header>
 
-  <div id="loading" class="loading-state">Caricamento ed elaborazione dati da Google Drive...</div>
+  <div id="loading" class="loading-state">Connessione e caricamento dati in corso...</div>
 
   <div id="analyticsWrapper" style="display: none;">
     <div class="analytics-section">
@@ -186,15 +176,23 @@
 
     let barChartInstance = null;
     let pieChartInstance = null;
-    let dataLoadedSuccess = false;
 
-    // Estrae l'ora numerica (0..23) da qualsiasi stringa o formato orario/ISO
+    // Connessione pulita via tag Script JSONP
+    function loadDataFromDrive() {
+      const oldScript = document.getElementById('jsonp-script');
+      if (oldScript) oldScript.remove();
+
+      const script = document.createElement('script');
+      script.id = 'jsonp-script';
+      script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
+      document.body.appendChild(script);
+    }
+
+    // Estrae l'ora numerica
     function parseHour(timeStr) {
       if (!timeStr) return -1;
       let str = String(timeStr).trim();
-      if (str.includes("T")) {
-        str = str.split("T")[1]; // Gestione orari in formato ISO Date
-      }
+      if (str.includes("T")) str = str.split("T")[1];
       const parts = str.split(":");
       if (parts.length >= 1) {
         const h = parseInt(parts[0], 10);
@@ -203,111 +201,59 @@
       return -1;
     }
 
-    // Estrae la stringa Data pulita (YYYY-MM-DD)
+    // Estrae la data YYYY-MM-DD
     function parseDate(dateVal) {
       if (!dateVal) return "";
       let str = String(dateVal).trim();
-      if (str.includes("T")) {
-        str = str.split("T")[0];
-      }
+      if (str.includes("T")) str = str.split("T")[0];
       return str;
     }
 
-    function loadDataFromDrive() {
-      const oldScript = document.getElementById('jsonp-script');
-      if (oldScript) oldScript.remove();
-
-      dataLoadedSuccess = false;
-
-      const script = document.createElement('script');
-      script.id = 'jsonp-script';
-      script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
-      
-      script.onerror = function() {
-        showError("Impossibile contattare Google Apps Script. Verificare la connessione o l'URL Webhook.");
-      };
-
-      document.body.appendChild(script);
-
-      // Timeout di sicurezza dopo 12 secondi
-      setTimeout(() => {
-        if (!dataLoadedSuccess) {
-          const loadingDiv = document.getElementById("loading");
-          if (loadingDiv && loadingDiv.style.display !== "none") {
-            loadingDiv.innerHTML = "Risposta lenta da Google Apps Script. Riprovo la connessione...";
-            loadDataFromDrive();
-          }
-        }
-      }, 12000);
-    }
-
-    function showError(msg) {
-      document.getElementById("loading").style.display = "none";
-      const wrapper = document.getElementById("analyticsWrapper");
-      wrapper.style.display = "block";
-      wrapper.innerHTML = `<div class="error-state">⚠️ <b>ERRORE:</b> ${msg}</div>`;
-    }
-
+    // Funzione richiamata automaticamente dal Webhook Google
     function processAndRender(data) {
-      try {
-        dataLoadedSuccess = true;
-        document.getElementById("loading").style.display = "none";
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("analyticsWrapper").style.display = "block";
 
-        if (!data || !Array.isArray(data) || data.length < 2) {
-          showError("Il foglio Google Drive non contiene righe di dati valide.");
-          return;
-        }
+      if (!data || !Array.isArray(data) || data.length < 2) return;
 
-        document.getElementById("analyticsWrapper").style.display = "block";
+      const dailyMap = {};
 
-        const dailyMap = {};
+      for (let i = 1; i < data.length; i++) {
+        const rowDate = parseDate(data[i][0]);
+        const startTimeStr = String(data[i][1] || "");
+        const endTimeStr = String(data[i][2] || "");
+        const activeMins = parseInt(data[i][3], 10) || 0;
 
-        for (let i = 1; i < data.length; i++) {
-          const rowDate = parseDate(data[i][0]);             // Col A: DATA
-          const startTimeStr = String(data[i][1] || "");      // Col B: ORA ACCENSIONE
-          const endTimeStr = String(data[i][2] || "");        // Col C: ULTIMO SEGNALE
-          const activeMins = parseInt(data[i][3], 10) || 0;  // Col D: MINUTI ATTIVI
+        if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
+          if (!dailyMap[rowDate]) {
+            dailyMap[rowDate] = {
+              hourly: new Array(24).fill(false),
+              totalMins: 0
+            };
+          }
 
-          if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
-            if (!dailyMap[rowDate]) {
-              dailyMap[rowDate] = {
-                hourly: new Array(24).fill(false),
-                totalMins: 0
-              };
-            }
+          dailyMap[rowDate].totalMins += activeMins;
 
-            dailyMap[rowDate].totalMins += activeMins;
+          const startHour = parseHour(startTimeStr);
+          const endHour = parseHour(endTimeStr);
 
-            const startHour = parseHour(startTimeStr);
-            const endHour = parseHour(endTimeStr);
-
-            if (startHour !== -1 && endHour !== -1) {
-              for (let h = startHour; h <= endHour; h++) {
-                if (h >= 0 && h < 24) {
-                  dailyMap[rowDate].hourly[h] = true;
-                }
+          if (startHour !== -1 && endHour !== -1) {
+            for (let h = startHour; h <= endHour; h++) {
+              if (h >= 0 && h < 24) {
+                dailyMap[rowDate].hourly[h] = true;
               }
             }
           }
         }
-
-        const sortedDates = Object.keys(dailyMap).sort();
-
-        if (sortedDates.length === 0) {
-          showError("Nessuna riga di log valida trovata all'interno del foglio.");
-          return;
-        }
-
-        // 1. Rendering Grafici di Analisi
-        renderAnalyticsCharts(sortedDates, dailyMap);
-
-        // 2. Rendering Orologi Circolari
-        renderClockCards(sortedDates.slice().reverse(), dailyMap);
-
-      } catch (err) {
-        console.error("Errore elaborazione dati:", err);
-        showError("Errore durante l'elaborazione dei grafici: " + err.message);
       }
+
+      const sortedDates = Object.keys(dailyMap).sort();
+
+      // 1. Grafici di Analisi
+      renderAnalyticsCharts(sortedDates, dailyMap);
+
+      // 2. Orologi 24 Ore
+      renderClockCards(sortedDates.slice().reverse(), dailyMap);
     }
 
     function renderAnalyticsCharts(dates, dailyMap) {
@@ -427,6 +373,7 @@
       });
     }
 
+    // Avvio caricamento
     loadDataFromDrive();
     setInterval(loadDataFromDrive, 30000);
   </script>
