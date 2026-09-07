@@ -31,7 +31,13 @@
       font-size: 0.95rem;
       margin: 0 0 18px 0;
     }
-    .drive-link-btn {
+    .top-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .drive-link-btn, .settings-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -44,14 +50,106 @@
       font-size: 0.85rem;
       font-weight: 600;
       letter-spacing: 0.5px;
+      cursor: pointer;
       transition: all 0.2s ease;
     }
-    .drive-link-btn:hover {
+    .drive-link-btn:hover, .settings-btn:hover {
       background-color: #38ef7d;
       color: #0b0e14;
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
+    /* MODALE SETTINGS */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #121721;
+      border: 1px solid #38ef7d;
+      border-radius: 16px;
+      padding: 25px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #212936;
+      padding-bottom: 10px;
+    }
+    .modal-title {
+      color: #38ef7d;
+      font-size: 1.2rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #788ba6;
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #ffffff; }
+    .settings-input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .settings-input {
+      flex: 1;
+      background: #0b0e14;
+      border: 1px solid #2a3446;
+      color: #e1e6ed;
+      padding: 8px 12px;
+      border-radius: 8px;
+      outline: none;
+    }
+    .add-opt-btn {
+      background: #38ef7d;
+      color: #0b0e14;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .options-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .options-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b0e14;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid #1f2733;
+    }
+    .del-opt-btn {
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
     .filter-container {
       width: 100%;
       margin: 0 auto 30px auto;
@@ -126,7 +224,6 @@
       text-align: center;
     }
 
-    /* CONTATORE TOTALE ORE */
     .total-counter-badge {
       background: #0b0e14;
       border: 1px solid #38ef7d;
@@ -243,18 +340,58 @@
       gap: 4px;
       box-sizing: border-box;
       font-size: 0.7rem;
+      margin-bottom: 8px;
     }
     .ts-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .ts-label-sm {
-      color: #788ba6;
-      font-weight: 600;
+    .ts-label-sm { color: #788ba6; font-weight: 600; }
+    .ts-val-sm { font-weight: bold; }
+
+    /* SELEZIONE EVENTO FASCE ORARIE */
+    .event-selector-box {
+      width: 100%;
+      background: #121721;
+      border: 1px solid #212936;
+      border-radius: 10px;
+      padding: 6px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .ts-val-sm {
+    .event-select-header {
+      font-size: 0.65rem;
+      color: #58a6ff;
       font-weight: bold;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .hour-picker-row {
+      display: flex;
+      gap: 4px;
+    }
+    .select-hour, .select-event {
+      background: #0b0e14;
+      border: 1px solid #2a3446;
+      color: #e1e6ed;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      padding: 3px;
+      outline: none;
+    }
+    .select-hour { width: 45%; }
+    .select-event { width: 55%; color: #38ef7d; }
+
+    .events-summary-tag {
+      font-size: 0.65rem;
+      color: #ffd70f;
+      margin-top: 4px;
+      text-align: center;
+      max-height: 35px;
+      overflow-y: auto;
     }
 
     .symbols-legend {
@@ -276,10 +413,7 @@
       font-weight: 600;
       color: #e1e6ed;
     }
-    .legend-svg {
-      width: 22px;
-      height: 22px;
-    }
+    .legend-svg { width: 22px; height: 22px; }
 
     .loading-state {
       text-align: center;
@@ -307,10 +441,28 @@
     <h1>ESP32 - Monitor & Analytics Attività Settimanale</h1>
     <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
     
-    <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?gid=211746529#gid=211746529" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
-      📊 APRI FOGLIO RAW_LOGS
-    </a>
+    <div class="top-actions">
+      <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?gid=211746529#gid=211746529" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
+        📊 APRI FOGLIO RAW_LOGS
+      </a>
+      <button class="settings-btn" onclick="openSettingsModal()">⚙️ SETTINGS EVENTI</button>
+    </div>
   </header>
+
+  <!-- MODALE IMPOSTAZIONI EVENTI -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">⚙️ Personalizza Opzioni Eventi</span>
+        <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+      </div>
+      <div class="settings-input-group">
+        <input type="text" id="newOptionInput" class="settings-input" placeholder="Nuova voce evento (es. Lavoro, Riposo)...">
+        <button class="add-opt-btn" onclick="addNewOption()">AGGIUNGI</button>
+      </div>
+      <ul id="optionsList" class="options-list"></ul>
+    </div>
+  </div>
 
   <div class="filter-container">
     <span class="filter-label">📅 Filtra per Data:</span>
@@ -388,13 +540,71 @@
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    const COLOR_INATTIVO = "#787878";   // GRIGIO CHIARO
-    const COLOR_NOTTE = "#00184d";      // BLU NOTTE SCURO (00:00 - 06:00)
-    const COLOR_MATTINA = "#9fe2fc";    // AZZURRO CHIARO (06:00 - 12:00)
-    const COLOR_POMERIGGIO = "#ffd70f"; // GIALLO ARANCIO (12:00 - 18:00)
-    const COLOR_SERA = "#0f6fff";       // BLU INTENSO (18:00 - 24:00)
+    const COLOR_INATTIVO = "#787878";   
+    const COLOR_NOTTE = "#00184d";      
+    const COLOR_MATTINA = "#9fe2fc";    
+    const COLOR_POMERIGGIO = "#ffd70f"; 
+    const COLOR_SERA = "#0f6fff";       
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
+
+    // GESTIONE EVENTI PERSONALIZZABILI VIA LOCALSTORAGE
+    let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno", "Lavoro", "Studio", "Standby", "Manutenzione", "Riposo"];
+    let hourlyEventAssignments = JSON.parse(localStorage.getItem("esp32_hourly_events")) || {};
+
+    function saveEventOptions() {
+      localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
+      renderOptionsList();
+      applyFilter();
+    }
+
+    function openSettingsModal() {
+      renderOptionsList();
+      document.getElementById("settingsModal").style.display = "flex";
+    }
+
+    function closeSettingsModal() {
+      document.getElementById("settingsModal").style.display = "none";
+    }
+
+    function renderOptionsList() {
+      const list = document.getElementById("optionsList");
+      list.innerHTML = "";
+      customEventOptions.forEach((opt, idx) => {
+        if (opt === "Nessuno") return;
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${opt}</span><button class="del-opt-btn" onclick="removeOption(${idx})">Elimina</button>`;
+        list.appendChild(li);
+      });
+    }
+
+    function addNewOption() {
+      const input = document.getElementById("newOptionInput");
+      const val = input.value.trim();
+      if (val && !customEventOptions.includes(val)) {
+        customEventOptions.push(val);
+        input.value = "";
+        saveEventOptions();
+      }
+    }
+
+    function removeOption(idx) {
+      customEventOptions.splice(idx, 1);
+      saveEventOptions();
+    }
+
+    function assignEventToHour(dateStr, hourStr, eventVal) {
+      if (!hourlyEventAssignments[dateStr]) {
+        hourlyEventAssignments[dateStr] = {};
+      }
+      if (eventVal === "Nessuno" || !eventVal) {
+        delete hourlyEventAssignments[dateStr][hourStr];
+      } else {
+        hourlyEventAssignments[dateStr][hourStr] = eventVal;
+      }
+      localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
+      applyFilter();
+    }
 
     let barChartInstance = null;
     let pieChartInstance = null;
@@ -523,7 +733,6 @@
         return 0;
       });
 
-      // AGGIORNAMENTO CONTATORE TOTALE ORE
       const totalHrs = Math.floor(globalMinutesSum / 60);
       const totalMins = globalMinutesSum % 60;
       const counterElem = document.getElementById("totalHoursBadge");
@@ -667,6 +876,18 @@
           const dayName = WEEKDAYS[dayOffset];
           const dayShortDate = `${String(currentDayDate.getDate()).padStart(2, '0')}/${String(currentDayDate.getMonth() + 1).padStart(2, '0')}`;
 
+          // COSTRUZIONE MENU OPZIONI EVENTI
+          let eventOptionsHTML = customEventOptions.map(opt => `<option value="${opt}">${opt}</option>`).join("");
+          let hoursOptionsHTML = Array.from({length: 24}, (_, h) => `<option value="${h}">${h.toString().padStart(2, '0')}:00</option>`).join("");
+
+          // RIASSUNTO EVENTI ASSEGNATI PER LA GIORNATA
+          let assignedTagsStr = "";
+          if (hourlyEventAssignments[currentDayStr]) {
+            assignedTagsStr = Object.entries(hourlyEventAssignments[currentDayStr])
+              .map(([h, ev]) => `📌 ${h.padStart(2, '0')}:00 -> ${ev}`)
+              .join("<br>");
+          }
+
           if (dayData) {
             const hrs = Math.floor(dayData.totalMins / 60);
             const mins = dayData.totalMins % 60;
@@ -691,6 +912,19 @@
                     <span class="ts-val-sm" style="color: #58a6ff;">${dayData.lastSignal ? dayData.lastSignal.substring(0, 5) : "--:--"}</span>
                   </div>
                 </div>
+
+                <div class="event-selector-box">
+                  <div class="event-select-header">Associa Evento Ora</div>
+                  <div class="hour-picker-row">
+                    <select class="select-hour" id="sel_h_${currentDayStr}" onchange="updateEventSelectForHour('${currentDayStr}')">
+                      ${hoursOptionsHTML}
+                    </select>
+                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="assignEventToHour('${currentDayStr}', document.getElementById('sel_h_${currentDayStr}').value, this.value)">
+                      ${eventOptionsHTML}
+                    </select>
+                  </div>
+                </div>
+                <div class="events-summary-tag">${assignedTagsStr}</div>
               </div>
             `;
           } else {
@@ -706,6 +940,19 @@
                   <div class="ts-row"><span class="ts-label-sm">🟢 ON:</span><span class="ts-val-sm">--:--</span></div>
                   <div class="ts-row"><span class="ts-label-sm">📡 SIG:</span><span class="ts-val-sm">--:--</span></div>
                 </div>
+
+                <div class="event-selector-box">
+                  <div class="event-select-header">Associa Evento Ora</div>
+                  <div class="hour-picker-row">
+                    <select class="select-hour" id="sel_h_${currentDayStr}" onchange="updateEventSelectForHour('${currentDayStr}')">
+                      ${hoursOptionsHTML}
+                    </select>
+                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="assignEventToHour('${currentDayStr}', document.getElementById('sel_h_${currentDayStr}').value, this.value)">
+                      ${eventOptionsHTML}
+                    </select>
+                  </div>
+                </div>
+                <div class="events-summary-tag">${assignedTagsStr}</div>
               </div>
             `;
           }
@@ -737,8 +984,21 @@
             colors24,
             Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`)
           );
+
+          // Sincronizza lo stato iniziale dei select
+          updateEventSelectForHour(currentDayStr);
         }
       });
+    }
+
+    function updateEventSelectForHour(dateStr) {
+      const hourElem = document.getElementById(`sel_h_${dateStr}`);
+      const eventElem = document.getElementById(`sel_ev_${dateStr}`);
+      if (hourElem && eventElem) {
+        const selectedHour = hourElem.value;
+        const currentAssigned = (hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][selectedHour]) || "Nessuno";
+        eventElem.value = currentAssigned;
+      }
     }
 
     loadDataFromDrive();
