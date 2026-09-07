@@ -301,7 +301,6 @@
       border-style: dashed;
     }
 
-    /* OROLOGIO CLICCABILE */
     .clock-clickable-area {
       cursor: pointer;
       width: 100%;
@@ -456,7 +455,7 @@
 <body>
 
   <header>
-    <h1>ESP32 - Monitor & Analytics Attività Settimanale</h1>
+    <h1>G-STUDIO Logger - Monitor Attività</h1>
     <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
     
     <div class="top-actions">
@@ -475,14 +474,14 @@
         <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
       </div>
       <div class="settings-input-group">
-        <input type="text" id="newOptionInput" class="settings-input" placeholder="Nuova voce evento (es. Lavoro, Riposo)...">
+        <input type="text" id="newOptionInput" class="settings-input" placeholder="Nuova voce evento...">
         <button class="add-opt-btn" onclick="addNewOption()">AGGIUNGI</button>
       </div>
       <ul id="optionsList" class="options-list"></ul>
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO OROLOGIO (APERTURA AL CLICK) -->
+  <!-- MODALE DETTAGLIO OROLOGIO -->
   <div id="clockDetailModal" class="modal-overlay">
     <div class="modal-content" style="max-width: 450px; text-align: center;">
       <div class="modal-header">
@@ -581,7 +580,8 @@
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
-    let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno", "Lavoro", "Studio", "Standby", "Manutenzione", "Riposo"];
+    // ELENCO OPZIONI SENZA PRESET (solo 'Nessuno' predefinito)
+    let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno"];
     let hourlyEventAssignments = JSON.parse(localStorage.getItem("esp32_hourly_events")) || {};
 
     function saveEventOptions() {
@@ -630,7 +630,7 @@
       const hourVal = document.getElementById(`sel_h_${dateStr}`).value;
 
       if (selectedVal === "ADD_CUSTOM_OPTION") {
-        const customVal = prompt("Inserisci il nome della nuova voce evento:");
+        const customVal = prompt("Inserisci la nuova voce evento:");
         if (customVal && customVal.trim() !== "") {
           const cleanVal = customVal.trim();
           if (!customEventOptions.includes(cleanVal)) {
@@ -638,6 +638,48 @@
             localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
           }
           assignEventToHour(dateStr, hourVal, cleanVal);
+        } else {
+          updateEventSelectForHour(dateStr);
+        }
+      } else if (selectedVal === "REMOVE_CUSTOM_OPTION") {
+        const deletableOptions = customEventOptions.filter(o => o !== "Nessuno");
+        if (deletableOptions.length === 0) {
+          alert("Non ci sono voci personalizzate da eliminare.");
+          updateEventSelectForHour(dateStr);
+          return;
+        }
+
+        const optListText = deletableOptions.map((o, i) => `${i + 1}. ${o}`).join("\n");
+        const choice = prompt(`Digita il numero o il nome della voce da eliminare:\n\n${optListText}`);
+        
+        if (choice) {
+          let optionToDelete = choice.trim();
+          const choiceNum = parseInt(choice.trim(), 10);
+          if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= deletableOptions.length) {
+            optionToDelete = deletableOptions[choiceNum - 1];
+          }
+
+          const targetIndex = customEventOptions.indexOf(optionToDelete);
+          if (targetIndex !== -1 && optionToDelete !== "Nessuno") {
+            customEventOptions.splice(targetIndex, 1);
+            localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
+
+            // Rimuovi l'associazione se la voce eliminata era assegnata a qualche ora
+            Object.keys(hourlyEventAssignments).forEach(d => {
+              Object.keys(hourlyEventAssignments[d]).forEach(h => {
+                if (hourlyEventAssignments[d][h] === optionToDelete) {
+                  delete hourlyEventAssignments[d][h];
+                }
+              });
+            });
+            localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
+
+            alert(`Voce "${optionToDelete}" eliminata con successo.`);
+            applyFilter();
+          } else {
+            alert("Voce non trovata.");
+            updateEventSelectForHour(dateStr);
+          }
         } else {
           updateEventSelectForHour(dateStr);
         }
@@ -659,7 +701,6 @@
       applyFilter();
     }
 
-    // MODALE DETTAGLIO OROLOGIO
     let modalChartInstance = null;
     function openClockModal(dateStr) {
       const dayData = cachedDailyMap[dateStr];
@@ -993,7 +1034,8 @@
           const dayShortDate = `${String(currentDayDate.getDate()).padStart(2, '0')}/${String(currentDayDate.getMonth() + 1).padStart(2, '0')}`;
 
           let eventOptionsHTML = customEventOptions.map(opt => `<option value="${opt}">${opt}</option>`).join("");
-          eventOptionsHTML += `<option value="ADD_CUSTOM_OPTION">➕ Inserisci voce custom...</option>`;
+          eventOptionsHTML += `<option value="ADD_CUSTOM_OPTION">➕ Inserisci nuova voce...</option>`;
+          eventOptionsHTML += `<option value="REMOVE_CUSTOM_OPTION">❌ Elimina una voce...</option>`;
           
           let hoursOptionsHTML = Array.from({length: 24}, (_, h) => `<option value="${h}">${h.toString().padStart(2, '0')}:00</option>`).join("");
 
