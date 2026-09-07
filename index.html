@@ -155,7 +155,6 @@
       font-size: 0.75rem;
     }
 
-    /* DETTAGLIO RAGGRUPPATO NEL POPUP */
     .minute-details-box {
       margin-top: 15px;
       background: #0b0e14;
@@ -347,17 +346,11 @@
       border-style: dashed;
     }
 
-    .clock-clickable-area {
-      cursor: pointer;
+    .clock-container-area {
       width: 100%;
       text-align: center;
       border-radius: 12px;
       padding: 4px;
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-    .clock-clickable-area:hover {
-      background: #121721;
-      transform: scale(1.02);
     }
 
     .day-name-header {
@@ -380,6 +373,7 @@
       width: 140px;
       height: 140px;
       margin: 0 auto 12px auto;
+      cursor: pointer;
     }
     .chart-center-text-sm {
       position: absolute;
@@ -390,6 +384,7 @@
       font-weight: bold;
       color: #ffffff;
       text-align: center;
+      pointer-events: none;
     }
 
     .ts-box-sm {
@@ -527,7 +522,7 @@
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO OROLOGIO (CON DETTAGLIO SESSIONI ON/OFF) -->
+  <!-- MODALE DETTAGLIO OROLOGIO -->
   <div id="clockDetailModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
@@ -535,14 +530,13 @@
         <button class="close-btn" onclick="closeClockModal()">&times;</button>
       </div>
       
-      <div style="position: relative; width: 200px; height: 200px; margin: 10px auto;">
+      <div style="position: relative; width: 220px; height: 220px; margin: 10px auto; cursor: pointer;">
         <canvas id="modalClockCanvas"></canvas>
-        <div id="modalClockCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.1rem; color: #fff;"></div>
+        <div id="modalClockCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.1rem; color: #fff; pointer-events: none;"></div>
       </div>
       
       <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
 
-      <!-- SEZIONE RAGGRUPPATA PER SESSIONI DI UTILIZZO -->
       <div class="minute-details-box">
         <div class="minute-title">
           <span>⚡ Sessioni Continuative (ON &rarr; OFF)</span>
@@ -680,6 +674,26 @@
       saveEventOptions();
     }
 
+    function promptAddEventForHour(dateStr, hourIndex) {
+      const hourLabel = `${hourIndex.toString().padStart(2, '0')}:00`;
+      const currentAssigned = (hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][hourIndex]) || "Nessuno";
+      
+      const newEvent = prompt(`Associa o modifica evento per la data ${dateStr} alle ORE ${hourLabel}:\n(Lascia vuoto per cancellare l'evento)`, currentAssigned === "Nessuno" ? "" : currentAssigned);
+
+      if (newEvent !== null) {
+        const cleanVal = newEvent.trim();
+        if (cleanVal !== "") {
+          if (!customEventOptions.includes(cleanVal)) {
+            customEventOptions.push(cleanVal);
+            localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
+          }
+          assignEventToHour(dateStr, hourIndex, cleanVal);
+        } else {
+          assignEventToHour(dateStr, hourIndex, "Nessuno");
+        }
+      }
+    }
+
     function handleEventSelectChange(dateStr, selectElem) {
       const selectedVal = selectElem.value;
       const hourVal = document.getElementById(`sel_h_${dateStr}`).value;
@@ -753,20 +767,23 @@
       }
       localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
       applyFilter();
+
+      // Se la modale è aperta per questo giorno, aggiornala
+      const modalHeader = document.getElementById("modalClockDate");
+      if (modalHeader && modalHeader.innerText.includes(dateStr)) {
+        openClockModal(dateStr);
+      }
     }
 
-    // CONVERTE UNA STRINGA "HH:MM" IN MINUTI DALL'INIZIO DEL GIORNO
     function timeToMinutes(tStr) {
       if (!tStr) return 0;
       const parts = tStr.split(":");
       return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
     }
 
-    // ALGORITMO DI RAGGRUPPAMENTO INTELLIGENTE PER CREARE MACRO-SESSIONI CONTINUATIVE (ON -> OFF)
     function consolidateSessions(rawSessions) {
       if (!rawSessions || rawSessions.length === 0) return [];
       
-      // Ordina le sessioni grezze per orario di inizio
       const sorted = [...rawSessions].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
       const consolidated = [];
 
@@ -780,7 +797,6 @@
         const prevEndMins = timeToMinutes(currentBlock.end);
         const currStartMins = timeToMinutes(sorted[i].start);
 
-        // Se l'intervallo tra la fine del blocco precedente e l'inizio del nuovo è <= 5 minuti, unifica
         if (currStartMins - prevEndMins <= 5) {
           currentBlock.end = sorted[i].end;
           currentBlock.mins += sorted[i].mins + (currStartMins - prevEndMins);
@@ -822,7 +838,6 @@
 
       document.getElementById("modalClockStats").innerHTML = statsHTML;
 
-      // COMPILAZIONE DELLE MACRO-SESSIONI RAGGRUPPATE (ON -> OFF)
       const minuteListElem = document.getElementById("minuteDetailsList");
       minuteListElem.innerHTML = "";
 
@@ -873,7 +888,13 @@
         },
         options: {
           cutout: '70%',
-          plugins: { legend: { display: false } }
+          plugins: { legend: { display: false } },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const clickedHour = elements[0].index;
+              promptAddEventForHour(dateStr, clickedHour);
+            }
+          }
         }
       });
 
@@ -1085,7 +1106,7 @@
       });
     }
 
-    function createDoughnutSafely(canvasId, bgColors, labels) {
+    function createDoughnutSafely(canvasId, bgColors, labels, dateStr) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -1111,6 +1132,14 @@
                   return ` ${labels[ctx.dataIndex]} - ${isAct ? 'ATTIVO' : 'INATTIVO'}`;
                 }
               }
+            }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const clickedHour = elements[0].index;
+              promptAddEventForHour(dateStr, clickedHour);
+            } else {
+              openClockModal(dateStr);
             }
           }
         }
@@ -1185,8 +1214,8 @@
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
                 
-                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio sessioni ON/OFF">
-                  <div class="chart-container-sm">
+                <div class="clock-container-area">
+                  <div class="chart-container-sm" title="Clicca su uno spicchio per inserire un evento a quell'ora">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm">
                       ${hrs}h ${mins}m
@@ -1225,8 +1254,8 @@
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
 
-                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio">
-                  <div class="chart-container-sm">
+                <div class="clock-container-area">
+                  <div class="chart-container-sm" title="Clicca su uno spicchio per inserire un evento a quell'ora">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
                   </div>
@@ -1278,7 +1307,8 @@
           createDoughnutSafely(
             `clock24_w${weekIdx}_d${dayOffset}`,
             colors24,
-            Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`)
+            Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
+            currentDayStr
           );
 
           updateEventSelectForHour(currentDayStr);
