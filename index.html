@@ -59,15 +59,16 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
-    /* MODALE SETTINGS */
+    /* MODALI (SETTINGS & DETTAGLIO OROLOGIO) */
     .modal-overlay {
       display: none;
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.85);
       z-index: 1000;
       align-items: center;
       justify-content: center;
+      backdrop-filter: blur(4px);
     }
     .modal-content {
       background: #121721;
@@ -77,6 +78,7 @@
       width: 90%;
       max-width: 500px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      position: relative;
     }
     .modal-header {
       display: flex;
@@ -100,6 +102,7 @@
       cursor: pointer;
     }
     .close-btn:hover { color: #ffffff; }
+
     .settings-input-group {
       display: flex;
       gap: 10px;
@@ -297,6 +300,21 @@
       opacity: 0.45;
       border-style: dashed;
     }
+
+    /* OROLOGIO CLICCABILE */
+    .clock-clickable-area {
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      border-radius: 12px;
+      padding: 4px;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .clock-clickable-area:hover {
+      background: #121721;
+      transform: scale(1.02);
+    }
+
     .day-name-header {
       font-size: 0.85rem;
       font-weight: 800;
@@ -350,7 +368,6 @@
     .ts-label-sm { color: #788ba6; font-weight: 600; }
     .ts-val-sm { font-weight: bold; }
 
-    /* SELEZIONE EVENTO FASCE ORARIE */
     .event-selector-box {
       width: 100%;
       background: #121721;
@@ -382,16 +399,17 @@
       padding: 3px;
       outline: none;
     }
-    .select-hour { width: 45%; }
-    .select-event { width: 55%; color: #38ef7d; }
+    .select-hour { width: 42%; }
+    .select-event { width: 58%; color: #38ef7d; font-weight: 600; }
 
     .events-summary-tag {
       font-size: 0.65rem;
       color: #ffd70f;
       margin-top: 4px;
       text-align: center;
-      max-height: 35px;
+      max-height: 40px;
       overflow-y: auto;
+      width: 100%;
     }
 
     .symbols-legend {
@@ -449,7 +467,7 @@
     </div>
   </header>
 
-  <!-- MODALE IMPOSTAZIONI EVENTI -->
+  <!-- MODALE SETTINGS -->
   <div id="settingsModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
@@ -461,6 +479,21 @@
         <button class="add-opt-btn" onclick="addNewOption()">AGGIUNGI</button>
       </div>
       <ul id="optionsList" class="options-list"></ul>
+    </div>
+  </div>
+
+  <!-- MODALE DETTAGLIO OROLOGIO (APERTURA AL CLICK) -->
+  <div id="clockDetailModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px; text-align: center;">
+      <div class="modal-header">
+        <span class="modal-title" id="modalClockDate">Dettaglio Orologio</span>
+        <button class="close-btn" onclick="closeClockModal()">&times;</button>
+      </div>
+      <div style="position: relative; width: 220px; height: 220px; margin: 15px auto;">
+        <canvas id="modalClockCanvas"></canvas>
+        <div id="modalClockCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.1rem; color: #fff;"></div>
+      </div>
+      <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 15px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
     </div>
   </div>
 
@@ -548,7 +581,6 @@
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
-    // GESTIONE EVENTI PERSONALIZZABILI VIA LOCALSTORAGE
     let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno", "Lavoro", "Studio", "Standby", "Manutenzione", "Riposo"];
     let hourlyEventAssignments = JSON.parse(localStorage.getItem("esp32_hourly_events")) || {};
 
@@ -593,6 +625,27 @@
       saveEventOptions();
     }
 
+    function handleEventSelectChange(dateStr, selectElem) {
+      const selectedVal = selectElem.value;
+      const hourVal = document.getElementById(`sel_h_${dateStr}`).value;
+
+      if (selectedVal === "ADD_CUSTOM_OPTION") {
+        const customVal = prompt("Inserisci il nome della nuova voce evento:");
+        if (customVal && customVal.trim() !== "") {
+          const cleanVal = customVal.trim();
+          if (!customEventOptions.includes(cleanVal)) {
+            customEventOptions.push(cleanVal);
+            localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
+          }
+          assignEventToHour(dateStr, hourVal, cleanVal);
+        } else {
+          updateEventSelectForHour(dateStr);
+        }
+      } else {
+        assignEventToHour(dateStr, hourVal, selectedVal);
+      }
+    }
+
     function assignEventToHour(dateStr, hourStr, eventVal) {
       if (!hourlyEventAssignments[dateStr]) {
         hourlyEventAssignments[dateStr] = {};
@@ -604,6 +657,69 @@
       }
       localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
       applyFilter();
+    }
+
+    // MODALE DETTAGLIO OROLOGIO
+    let modalChartInstance = null;
+    function openClockModal(dateStr) {
+      const dayData = cachedDailyMap[dateStr];
+      document.getElementById("modalClockDate").innerText = `DETTAGLIO: ${dateStr}`;
+      
+      const hrs = dayData ? Math.floor(dayData.totalMins / 60) : 0;
+      const mins = dayData ? dayData.totalMins % 60 : 0;
+      document.getElementById("modalClockCenterText").innerText = `${hrs}h ${mins}m`;
+
+      let statsHTML = `
+        <div>🟢 <strong>Ora Accensione:</strong> ${dayData && dayData.firstOn ? dayData.firstOn : '--:--:--'}</div>
+        <div>📡 <strong>Ultimo Segnale:</strong> ${dayData && dayData.lastSignal ? dayData.lastSignal : '--:--:--'}</div>
+        <hr style="border-color: #212936; margin: 8px 0;">
+        <div style="color: #38ef7d;">⏱️ <strong>Tempo Attivo:</strong> ${hrs} Ore e ${mins} Minuti</div>
+      `;
+
+      if (hourlyEventAssignments[dateStr] && Object.keys(hourlyEventAssignments[dateStr]).length > 0) {
+        statsHTML += `<hr style="border-color: #212936; margin: 8px 0;"><div style="color: #ffd70f; font-weight: bold;">Eventi Assegnati:</div>`;
+        Object.entries(hourlyEventAssignments[dateStr]).forEach(([h, ev]) => {
+          statsHTML += `<div style="font-size: 0.8rem; color: #e1e6ed;">• Ore ${h.padStart(2, '0')}:00 &rarr; <span style="color: #38ef7d;">${ev}</span></div>`;
+        });
+      }
+
+      document.getElementById("modalClockStats").innerHTML = statsHTML;
+
+      let colors24 = new Array(24).fill(COLOR_INATTIVO);
+      if (dayData) {
+        colors24 = dayData.hourly.map((a, h) => {
+          if (!a) return COLOR_INATTIVO;
+          if (h >= 0 && h < 6) return COLOR_NOTTE;
+          if (h >= 6 && h < 12) return COLOR_MATTINA;
+          if (h >= 12 && h < 18) return COLOR_POMERIGGIO;
+          return COLOR_SERA;
+        });
+      }
+
+      if (modalChartInstance) modalChartInstance.destroy();
+      const ctxModal = document.getElementById("modalClockCanvas").getContext("2d");
+      modalChartInstance = new Chart(ctxModal, {
+        type: 'doughnut',
+        data: {
+          labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
+          datasets: [{
+            data: new Array(24).fill(1),
+            backgroundColor: colors24,
+            borderWidth: 2,
+            borderColor: '#0b0e14'
+          }]
+        },
+        options: {
+          cutout: '70%',
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      document.getElementById("clockDetailModal").style.display = "flex";
+    }
+
+    function closeClockModal() {
+      document.getElementById("clockDetailModal").style.display = "none";
     }
 
     let barChartInstance = null;
@@ -876,15 +992,15 @@
           const dayName = WEEKDAYS[dayOffset];
           const dayShortDate = `${String(currentDayDate.getDate()).padStart(2, '0')}/${String(currentDayDate.getMonth() + 1).padStart(2, '0')}`;
 
-          // COSTRUZIONE MENU OPZIONI EVENTI
           let eventOptionsHTML = customEventOptions.map(opt => `<option value="${opt}">${opt}</option>`).join("");
+          eventOptionsHTML += `<option value="ADD_CUSTOM_OPTION">➕ Inserisci voce custom...</option>`;
+          
           let hoursOptionsHTML = Array.from({length: 24}, (_, h) => `<option value="${h}">${h.toString().padStart(2, '0')}:00</option>`).join("");
 
-          // RIASSUNTO EVENTI ASSEGNATI PER LA GIORNATA
           let assignedTagsStr = "";
           if (hourlyEventAssignments[currentDayStr]) {
             assignedTagsStr = Object.entries(hourlyEventAssignments[currentDayStr])
-              .map(([h, ev]) => `📌 ${h.padStart(2, '0')}:00 -> ${ev}`)
+              .map(([h, ev]) => `📌 ${h.padStart(2, '0')}:00 &rarr; ${ev}`)
               .join("<br>");
           }
 
@@ -896,12 +1012,16 @@
               <div class="day-column">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="chart-container-sm">
-                  <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
-                  <div class="chart-center-text-sm">
-                    ${hrs}h ${mins}m
+                
+                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per ingrandire il dettaglio dell'orologio">
+                  <div class="chart-container-sm">
+                    <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
+                    <div class="chart-center-text-sm">
+                      ${hrs}h ${mins}m
+                    </div>
                   </div>
                 </div>
+
                 <div class="ts-box-sm">
                   <div class="ts-row">
                     <span class="ts-label-sm">🟢 ON:</span>
@@ -919,7 +1039,7 @@
                     <select class="select-hour" id="sel_h_${currentDayStr}" onchange="updateEventSelectForHour('${currentDayStr}')">
                       ${hoursOptionsHTML}
                     </select>
-                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="assignEventToHour('${currentDayStr}', document.getElementById('sel_h_${currentDayStr}').value, this.value)">
+                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="handleEventSelectChange('${currentDayStr}', this)">
                       ${eventOptionsHTML}
                     </select>
                   </div>
@@ -932,10 +1052,14 @@
               <div class="day-column empty">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="chart-container-sm">
-                  <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
-                  <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
+
+                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio">
+                  <div class="chart-container-sm">
+                    <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
+                    <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
+                  </div>
                 </div>
+
                 <div class="ts-box-sm">
                   <div class="ts-row"><span class="ts-label-sm">🟢 ON:</span><span class="ts-val-sm">--:--</span></div>
                   <div class="ts-row"><span class="ts-label-sm">📡 SIG:</span><span class="ts-val-sm">--:--</span></div>
@@ -947,7 +1071,7 @@
                     <select class="select-hour" id="sel_h_${currentDayStr}" onchange="updateEventSelectForHour('${currentDayStr}')">
                       ${hoursOptionsHTML}
                     </select>
-                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="assignEventToHour('${currentDayStr}', document.getElementById('sel_h_${currentDayStr}').value, this.value)">
+                    <select class="select-event" id="sel_ev_${currentDayStr}" onchange="handleEventSelectChange('${currentDayStr}', this)">
                       ${eventOptionsHTML}
                     </select>
                   </div>
@@ -985,7 +1109,6 @@
             Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`)
           );
 
-          // Sincronizza lo stato iniziale dei select
           updateEventSelectForHour(currentDayStr);
         }
       });
