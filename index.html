@@ -178,25 +178,11 @@
       flex-direction: column;
       align-items: center;
       min-width: 0;
-      cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-    .day-column:hover {
-      transform: translateY(-4px);
-      border-color: #38ef7d;
-      box-shadow: 0 8px 20px rgba(56, 239, 125, 0.15);
     }
     .day-column.empty {
       opacity: 0.45;
       border-style: dashed;
-      cursor: default;
     }
-    .day-column.empty:hover {
-      transform: none;
-      border-color: #1f2733;
-      box-shadow: none;
-    }
-
     .day-name-header {
       font-size: 0.85rem;
       font-weight: 800;
@@ -254,131 +240,29 @@
       font-weight: bold;
     }
 
-    /* MODAL POPUP PER INGRANDIMENTO E DETTAGLIO MINUTI */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(11, 14, 20, 0.85);
-      backdrop-filter: blur(8px);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-    .modal-card {
-      background: #121721;
-      border: 1px solid #212936;
-      border-radius: 24px;
-      width: 100%;
-      max-width: 900px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 30px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-      position: relative;
-    }
-    .modal-close-btn {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: #1a212d;
-      border: 1px solid #2a3446;
-      color: #e1e6ed;
-      font-size: 1.2rem;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      cursor: pointer;
+    /* LEGGENDA SIMBOLI E FASCE */
+    .symbols-legend {
       display: flex;
-      align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
-    }
-    .modal-close-btn:hover {
-      background: #ff4d4d;
-      color: #ffffff;
-      border-color: #ff4d4d;
-    }
-
-    .modal-header {
-      text-align: center;
-      margin-bottom: 25px;
-    }
-    .modal-title {
-      font-size: 1.4rem;
-      color: #38ef7d;
-      font-weight: 800;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-    }
-    .modal-subtitle {
-      font-size: 0.95rem;
-      color: #788ba6;
-    }
-
-    .modal-body-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 25px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+      background: #0b0e14;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #1f2733;
+    }
+    .legend-item {
+      display: flex;
       align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #e1e6ed;
     }
-    .chart-container-lg {
-      position: relative;
-      width: 260px;
-      height: 260px;
-      margin: 0 auto;
-    }
-    .chart-center-text-lg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #ffffff;
-      text-align: center;
-    }
-
-    .modal-stats-box {
-      background: #0b0e14;
-      border: 1px solid #1f2733;
-      border-radius: 16px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .modal-stat-item {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid #1a212d;
-      padding-bottom: 8px;
-    }
-    .modal-stat-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .minute-section {
-      margin-top: 30px;
-      background: #0b0e14;
-      border: 1px solid #1f2733;
-      border-radius: 16px;
-      padding: 20px;
-    }
-    .minute-title {
-      font-size: 0.95rem;
-      color: #58a6ff;
-      font-weight: bold;
-      text-transform: uppercase;
-      margin-bottom: 15px;
-      text-align: center;
-      letter-spacing: 0.5px;
+    .legend-svg {
+      width: 22px;
+      height: 22px;
     }
 
     .loading-state {
@@ -429,38 +313,59 @@
       <div class="analytics-card">
         <div class="analytics-title">Ripartizione Utilizzo Complessiva per Fasce</div>
         <canvas id="pieChartFasce"></canvas>
+        
+        <!-- LEGGENDA CON SIMBOLI MINIMAL IN ORDINE: MATTINO, POMERIGGIO, SERA, NOTTE -->
+        <div class="symbols-legend">
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#9fe2fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 18a5 5 0 0 0-10 0"></path>
+              <line x1="12" y1="2" x2="12" y2="9"></line>
+              <line x1="4.22" y1="10.22" x2="7.75" y2="12.5"></line>
+              <line x1="19.78" y1="10.22" x2="16.25" y2="12.5"></line>
+              <line x1="2" y1="18" x2="22" y2="18"></line>
+            </svg>
+            <span>Mattina</span>
+          </div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#ffd70f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span>Pomeriggio</span>
+          </div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#0f6fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M3 12h18"></path>
+              <path d="M4.5 15.5h15"></path>
+              <path d="M7 18.5h10"></path>
+            </svg>
+            <span>Sera</span>
+          </div>
+
+          <div class="legend-item">
+            <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              <polygon points="12 2 13.09 4.26 15.57 4.62 13.78 6.37 14.2 8.85 12 7.7 9.8 8.85 10.22 6.37 8.43 4.62 10.91 4.26 12 2" fill="#60a5fa" transform="translate(4, -2) scale(0.4)"></polygon>
+            </svg>
+            <span>Notte</span>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <div class="section-title">Orologi 24H Disposti per Settimana (LUN - DOM)</div>
     <div id="weeksGrid"></div>
-  </div>
-
-  <!-- POPUP MODAL DETTAGLIO OROLOGIO E MINUTI -->
-  <div id="modalOverlay" class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <button class="modal-close-btn" onclick="closeModalForce()">✕</button>
-      
-      <div class="modal-header">
-        <div id="modalTitle" class="modal-title">DETTAGLIO GIORNO</div>
-        <div id="modalSubtitle" class="modal-subtitle">Tracciamento attività in alta risoluzione</div>
-      </div>
-
-      <div class="modal-body-grid">
-        <div class="chart-container-lg">
-          <canvas id="clockLgCanvas"></canvas>
-          <div id="modalCenterText" class="chart-center-text-lg">0h 0m</div>
-        </div>
-
-        <div id="modalStatsBox" class="modal-stats-box"></div>
-      </div>
-
-      <!-- GRAFICO DI DETTAGLIO AD ALTA RISOLUZIONE SUI 1.440 MINUTI DELLA GIORNATA -->
-      <div class="minute-section">
-        <div class="minute-title">Dettaglio Attività al Minuto (1.440 Minuti / 24 Ore)</div>
-        <canvas id="minuteChartCanvas" style="max-height: 180px;"></canvas>
-      </div>
-    </div>
   </div>
 
   <script>
@@ -477,9 +382,6 @@
 
     let barChartInstance = null;
     let pieChartInstance = null;
-    let clockLgInstance = null;
-    let minuteChartInstance = null;
-
     let cachedDailyMap = {};
     let cachedSortedDates = [];
 
@@ -493,24 +395,16 @@
       document.body.appendChild(script);
     }
 
-    function parseTimeToMinutes(timeStr) {
+    function parseHour(timeStr) {
       if (!timeStr) return -1;
       let str = String(timeStr).trim();
       if (str.includes("T")) str = str.split("T")[1];
       const parts = str.split(":");
-      if (parts.length >= 2) {
+      if (parts.length >= 1) {
         const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        if (!isNaN(h) && !isNaN(m) && h >= 0 && h < 24 && m >= 0 && m < 60) {
-          return h * 60 + m;
-        }
+        if (!isNaN(h) && h >= 0 && h < 24) return h;
       }
       return -1;
-    }
-
-    function parseHour(timeStr) {
-      const m = parseTimeToMinutes(timeStr);
-      return m !== -1 ? Math.floor(m / 60) : -1;
     }
 
     function parseDate(dateVal) {
@@ -552,7 +446,6 @@
           if (!cachedDailyMap[rowDate]) {
             cachedDailyMap[rowDate] = {
               hourly: new Array(24).fill(false),
-              minuteArray: new Array(1440).fill(false), // 1.440 Minuti della giornata
               totalMins: 0,
               firstOn: startTimeStr,
               lastSignal: endTimeStr
@@ -568,24 +461,13 @@
 
           cachedDailyMap[rowDate].totalMins += activeMins;
 
-          // Mappatura Ore per l'orologio sintetico
           const startHour = parseHour(startTimeStr);
           const endHour = parseHour(endTimeStr);
+
           if (startHour !== -1 && endHour !== -1) {
             for (let h = startHour; h <= endHour; h++) {
               if (h >= 0 && h < 24) {
                 cachedDailyMap[rowDate].hourly[h] = true;
-              }
-            }
-          }
-
-          // Mappatura Minuto per Minuto per la massima risoluzione
-          const startMin = parseTimeToMinutes(startTimeStr);
-          const endMin = parseTimeToMinutes(endTimeStr);
-          if (startMin !== -1 && endMin !== -1) {
-            for (let m = startMin; m <= endMin; m++) {
-              if (m >= 0 && m < 1440) {
-                cachedDailyMap[rowDate].minuteArray[m] = true;
               }
             }
           }
@@ -660,10 +542,10 @@
       pieChartInstance = new Chart(ctxPie, {
         type: 'pie',
         data: {
-          labels: ['Notte (00-06)', 'Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)'],
+          labels: ['Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)', 'Notte (00-06)'],
           datasets: [{
-            data: [notte, mattina, pomeriggio, sera],
-            backgroundColor: [COLOR_NOTTE, COLOR_MATTINA, COLOR_POMERIGGIO, COLOR_SERA]
+            data: [mattina, pomeriggio, sera, notte],
+            backgroundColor: [COLOR_MATTINA, COLOR_POMERIGGIO, COLOR_SERA, COLOR_NOTTE]
           }]
         },
         options: {
@@ -758,12 +640,14 @@
             const mins = dayData.totalMins % 60;
 
             weekHTML += `
-              <div class="day-column" onclick="openModalForDay('${currentDayStr}', '${dayName}')">
+              <div class="day-column">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
                 <div class="chart-container-sm">
                   <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
-                  <div class="chart-center-text-sm">${hrs}h ${mins}m</div>
+                  <div class="chart-center-text-sm">
+                    ${hrs}h ${mins}m
+                  </div>
                 </div>
                 <div class="ts-box-sm">
                   <div class="ts-row">
@@ -823,156 +707,6 @@
           );
         }
       });
-    }
-
-    // --- LOGICA MODAL POPUP E GRAFICO MINUTO PER MINUTO ---
-    function openModalForDay(dateStr, dayName) {
-      const dayData = cachedDailyMap[dateStr];
-      if (!dayData) return;
-
-      document.getElementById("modalTitle").innerText = `${dayName} - ${dateStr}`;
-      
-      const hrs = Math.floor(dayData.totalMins / 60);
-      const mins = dayData.totalMins % 60;
-      document.getElementById("modalCenterText").innerText = `${hrs}h ${mins}m`;
-
-      // Conteggio minuti per fascia
-      let countNotte = 0, countMattina = 0, countPomeriggio = 0, countSera = 0;
-      dayData.minuteArray.forEach((isActive, m) => {
-        if (isActive) {
-          if (m >= 0 && m < 360) countNotte++;
-          else if (m >= 360 && m < 720) countMattina++;
-          else if (m >= 720 && m < 1080) countPomeriggio++;
-          else countSera++;
-        }
-      });
-
-      document.getElementById("modalStatsBox").innerHTML = `
-        <div class="modal-stat-item">
-          <span style="color: #788ba6; font-weight: 600;">⏱️ Tempo Totale Attivo:</span>
-          <span style="color: #38ef7d; font-weight: bold;">${hrs} ore e ${mins} minuti</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: #788ba6; font-weight: 600;">🟢 Prima Accensione:</span>
-          <span style="color: #38ef7d; font-weight: bold;">${dayData.firstOn || "--:--:--"}</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: #788ba6; font-weight: 600;">📡 Ultimo Segnale:</span>
-          <span style="color: #58a6ff; font-weight: bold;">${dayData.lastSignal || "--:--:--"}</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: ${COLOR_NOTTE}; font-weight: 600;">🌙 Notte (00-06):</span>
-          <span style="font-weight: bold;">${countNotte} min</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: ${COLOR_MATTINA}; font-weight: 600;">🌅 Mattina (06-12):</span>
-          <span style="font-weight: bold;">${countMattina} min</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: ${COLOR_POMERIGGIO}; font-weight: 600;">☀️ Pomeriggio (12-18):</span>
-          <span style="font-weight: bold;">${countPomeriggio} min</span>
-        </div>
-        <div class="modal-stat-item">
-          <span style="color: ${COLOR_SERA}; font-weight: 600;">🌆 Sera (18-24):</span>
-          <span style="font-weight: bold;">${countSera} min</span>
-        </div>
-      `;
-
-      // Render Orologio Ingrandito
-      if (clockLgInstance) clockLgInstance.destroy();
-      const ctxLg = document.getElementById("clockLgCanvas").getContext("2d");
-      const colors24 = dayData.hourly.map((a, h) => {
-        if (!a) return COLOR_INATTIVO;
-        if (h >= 0 && h < 6) return COLOR_NOTTE;
-        if (h >= 6 && h < 12) return COLOR_MATTINA;
-        if (h >= 12 && h < 18) return COLOR_POMERIGGIO;
-        return COLOR_SERA;
-      });
-
-      clockLgInstance = new Chart(ctxLg, {
-        type: 'doughnut',
-        data: {
-          labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
-          datasets: [{
-            data: new Array(24).fill(1),
-            backgroundColor: colors24,
-            borderWidth: 2,
-            borderColor: '#0b0e14'
-          }]
-        },
-        options: {
-          cutout: '72%',
-          plugins: { legend: { display: false } }
-        }
-      });
-
-      // Render Grafico a Barre Minuto per Minuto (1.440 barre)
-      if (minuteChartInstance) minuteChartInstance.destroy();
-      const ctxMin = document.getElementById("minuteChartCanvas").getContext("2d");
-
-      const minuteLabels = Array.from({length: 1440}, (_, i) => {
-        const hh = String(Math.floor(i / 60)).padStart(2, '0');
-        const mm = String(i % 60).padStart(2, '0');
-        return `${hh}:${mm}`;
-      });
-
-      const minuteDataValues = dayData.minuteArray.map(a => a ? 1 : 0);
-      const minuteColors = dayData.minuteArray.map((a, m) => {
-        if (!a) return '#1a212d';
-        if (m < 360) return COLOR_NOTTE;
-        if (m < 720) return COLOR_MATTINA;
-        if (m < 1080) return COLOR_POMERIGGIO;
-        return COLOR_SERA;
-      });
-
-      minuteChartInstance = new Chart(ctxMin, {
-        type: 'bar',
-        data: {
-          labels: minuteLabels,
-          datasets: [{
-            data: minuteDataValues,
-            backgroundColor: minuteColors,
-            barPercentage: 1.0,
-            categoryPercentage: 1.0
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(ctx) {
-                  return ctx.raw === 1 ? ' Attivo' : ' Inattivo';
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: '#788ba6',
-                maxTicksLimit: 24,
-                callback: function(val, index) {
-                  return index % 60 === 0 ? `${Math.floor(index / 60).toString().padStart(2, '0')}:00` : '';
-                }
-              },
-              grid: { color: '#1a212d' }
-            },
-            y: { display: false }
-          }
-        }
-      });
-
-      document.getElementById("modalOverlay").style.display = "flex";
-    }
-
-    function closeModal(e) {
-      if (e.target.id === "modalOverlay") closeModalForce();
-    }
-
-    function closeModalForce() {
-      document.getElementById("modalOverlay").style.display = "none";
     }
 
     loadDataFromDrive();
