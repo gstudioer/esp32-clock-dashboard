@@ -155,7 +155,7 @@
       font-size: 0.75rem;
     }
 
-    /* DETTAGLIO AL MINUTO NEL POPUP */
+    /* DETTAGLIO RAGGRUPPATO NEL POPUP */
     .minute-details-box {
       margin-top: 15px;
       background: #0b0e14;
@@ -170,28 +170,34 @@
       font-weight: bold;
       text-transform: uppercase;
       margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
     }
     .minute-list {
       list-style: none;
       padding: 0;
       margin: 0;
-      max-height: 150px;
+      max-height: 200px;
       overflow-y: auto;
       font-size: 0.8rem;
     }
     .minute-item {
       display: flex;
       justify-content: space-between;
-      padding: 5px 8px;
-      border-bottom: 1px solid #1a212d;
-      color: #e1e6ed;
+      align-items: center;
+      padding: 6px 10px;
+      background: #121721;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      border: 1px solid #1a212d;
     }
-    .minute-item:last-child { border-bottom: none; }
     .minute-time { color: #38ef7d; font-weight: bold; }
-    .minute-dur { color: #ffd70f; }
+    .minute-dur { 
+      background: #1a212d;
+      color: #ffd70f; 
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
 
     .filter-container {
       width: 100%;
@@ -521,7 +527,7 @@
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO OROLOGIO (CON DETTAGLIO AL MINUTO) -->
+  <!-- MODALE DETTAGLIO OROLOGIO (CON DETTAGLIO SESSIONI ON/OFF) -->
   <div id="clockDetailModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
@@ -536,10 +542,10 @@
       
       <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
 
-      <!-- SEZIONE DETTAGLIO AL MINUTO -->
+      <!-- SEZIONE RAGGRUPPATA PER SESSIONI DI UTILIZZO -->
       <div class="minute-details-box">
         <div class="minute-title">
-          <span>⏱️ Dettaglio Sessioni al Minuto</span>
+          <span>⚡ Sessioni Continuative (ON &rarr; OFF)</span>
         </div>
         <ul id="minuteDetailsList" class="minute-list"></ul>
       </div>
@@ -749,6 +755,48 @@
       applyFilter();
     }
 
+    // CONVERTE UNA STRINGA "HH:MM" IN MINUTI DALL'INIZIO DEL GIORNO
+    function timeToMinutes(tStr) {
+      if (!tStr) return 0;
+      const parts = tStr.split(":");
+      return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    }
+
+    // ALGORITMO DI RAGGRUPPAMENTO INTELLIGENTE PER CREARE MACRO-SESSIONI CONTINUATIVE (ON -> OFF)
+    function consolidateSessions(rawSessions) {
+      if (!rawSessions || rawSessions.length === 0) return [];
+      
+      // Ordina le sessioni grezze per orario di inizio
+      const sorted = [...rawSessions].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+      const consolidated = [];
+
+      let currentBlock = {
+        start: sorted[0].start,
+        end: sorted[0].end,
+        mins: sorted[0].mins
+      };
+
+      for (let i = 1; i < sorted.length; i++) {
+        const prevEndMins = timeToMinutes(currentBlock.end);
+        const currStartMins = timeToMinutes(sorted[i].start);
+
+        // Se l'intervallo tra la fine del blocco precedente e l'inizio del nuovo è <= 5 minuti, unifica
+        if (currStartMins - prevEndMins <= 5) {
+          currentBlock.end = sorted[i].end;
+          currentBlock.mins += sorted[i].mins + (currStartMins - prevEndMins);
+        } else {
+          consolidated.push(currentBlock);
+          currentBlock = {
+            start: sorted[i].start,
+            end: sorted[i].end,
+            mins: sorted[i].mins
+          };
+        }
+      }
+      consolidated.push(currentBlock);
+      return consolidated;
+    }
+
     let modalChartInstance = null;
     function openClockModal(dateStr) {
       const dayData = cachedDailyMap[dateStr];
@@ -759,10 +807,10 @@
       document.getElementById("modalClockCenterText").innerText = `${hrs}h ${mins}m`;
 
       let statsHTML = `
-        <div>🟢 <strong>Ora Accensione:</strong> ${dayData && dayData.firstOn ? dayData.firstOn : '--:--:--'}</div>
-        <div>📡 <strong>Ultimo Segnale:</strong> ${dayData && dayData.lastSignal ? dayData.lastSignal : '--:--:--'}</div>
+        <div>🟢 <strong>Prima Accensione:</strong> ${dayData && dayData.firstOn ? dayData.firstOn : '--:--:--'}</div>
+        <div>📡 <strong>Ultimo Spegnimento/Segnale:</strong> ${dayData && dayData.lastSignal ? dayData.lastSignal : '--:--:--'}</div>
         <hr style="border-color: #212936; margin: 8px 0;">
-        <div style="color: #38ef7d;">⏱️ <strong>Tempo Attivo:</strong> ${hrs} Ore e ${mins} Minuti</div>
+        <div style="color: #38ef7d;">⏱️ <strong>Tempo Attivo Complessivo:</strong> ${hrs} Ore e ${mins} Minuti</div>
       `;
 
       if (hourlyEventAssignments[dateStr] && Object.keys(hourlyEventAssignments[dateStr]).length > 0) {
@@ -774,17 +822,24 @@
 
       document.getElementById("modalClockStats").innerHTML = statsHTML;
 
-      // COMPILAZIONE DETTAGLIO AL MINUTO PER IL POPUP
+      // COMPILAZIONE DELLE MACRO-SESSIONI RAGGRUPPATE (ON -> OFF)
       const minuteListElem = document.getElementById("minuteDetailsList");
       minuteListElem.innerHTML = "";
 
       if (dayData && dayData.sessions && dayData.sessions.length > 0) {
-        dayData.sessions.forEach(sess => {
+        const macroSessions = consolidateSessions(dayData.sessions);
+
+        macroSessions.forEach((sess, idx) => {
           const li = document.createElement("li");
           li.className = "minute-item";
+          
+          const sHrs = Math.floor(sess.mins / 60);
+          const sMins = sess.mins % 60;
+          const durStr = sHrs > 0 ? `${sHrs}h ${sMins}m` : `${sMins} min`;
+
           li.innerHTML = `
-            <span>Sessione: <span class="minute-time">${sess.start} &rarr; ${sess.end}</span></span>
-            <span class="minute-dur">${sess.mins} min</span>
+            <span>Sessione ${idx + 1}: <strong>ON</strong> <span class="minute-time">${sess.start}</span> &rarr; <strong>OFF</strong> <span class="minute-time">${sess.end}</span></span>
+            <span class="minute-dur">${durStr}</span>
           `;
           minuteListElem.appendChild(li);
         });
@@ -911,7 +966,6 @@
 
           cachedDailyMap[rowDate].totalMins += activeMins;
 
-          // REGISTRA LA SINGOLA SESSIONE PER IL DETTAGLIO AL MINUTO
           if (startTimeStr && endTimeStr) {
             cachedDailyMap[rowDate].sessions.push({
               start: startTimeStr.substring(0, 5),
@@ -1131,7 +1185,7 @@
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
                 
-                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio al minuto">
+                <div class="clock-clickable-area" onclick="openClockModal('${currentDayStr}')" title="Clicca per aprire il dettaglio sessioni ON/OFF">
                   <div class="chart-container-sm">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm">
