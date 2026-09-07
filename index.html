@@ -135,7 +135,6 @@
       letter-spacing: 1px;
     }
 
-    /* CONTENITORE SETTIMANALE FULL-SCREEN */
     .week-card {
       background: #121721;
       border: 1px solid #212936;
@@ -163,7 +162,6 @@
       letter-spacing: 1px;
     }
 
-    /* GRIGLIA A 7 COLONNE PER I GIORNI DELLA SETTIMANA */
     .week-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -182,7 +180,7 @@
       min-width: 0;
     }
     .day-column.empty {
-      opacity: 0.4;
+      opacity: 0.45;
       border-style: dashed;
     }
     .day-name-header {
@@ -300,12 +298,12 @@
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    // NUOVA TAVOLOZZA COLORI PER FASCE (Modificabile a mano)
-    const COLOR_NOTTE = "#ff4d4d";      // ROSSO (00:00 - 06:00)
-    const COLOR_MATTINA = "#00d2ff";    // AZZURRO (06:00 - 12:00)
-    const COLOR_POMERIGGIO = "#ff9f43"; // ARANCIO (12:00 - 18:00)
-    const COLOR_SERA = "#3867d6";       // BLU (18:00 - 24:00)
-    const COLOR_INATTIVO = "#1a212d";
+    // NUOVA TAVOLOZZA COLORI PERSONALIZZATA
+    const COLOR_INATTIVO = "#787878";   // GRIGIO CHIARO
+    const COLOR_NOTTE = "#00184d";      // BLU NOTTE SCURO (00:00 - 06:00)
+    const COLOR_MATTINA = "#9fe2fc";    // AZZURRO CHIARO (06:00 - 12:00)
+    const COLOR_POMERIGGIO = "#ffd70f"; // GIALLO ARANCIO (12:00 - 18:00)
+    const COLOR_SERA = "#0f6fff";       // BLU INTENSO (18:00 - 24:00)
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
@@ -343,7 +341,6 @@
       return str;
     }
 
-    // Calcola il lunedì della settimana corrispondente ad una data
     function getMonday(d) {
       const date = new Date(d);
       const day = date.getDay();
@@ -528,7 +525,6 @@
         return;
       }
 
-      // Raggruppa i giorni per Settimana (chiave = data del Lunedì)
       const weeks = {};
       dates.forEach(dStr => {
         const parts = dStr.split("-");
@@ -557,7 +553,6 @@
           <div class="week-grid">
         `;
 
-        // Genera esattamente 7 colonne (da Lunedì a Domenica)
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
           const currentDayDate = new Date(mondayDate);
           currentDayDate.setDate(currentDayDate.getDate() + dayOffset);
@@ -594,7 +589,6 @@
               </div>
             `;
           } else {
-            // Colonna vuota per il giorno privo di dati
             weekHTML += `
               <div class="day-column empty">
                 <div class="day-name-header">${dayName}</div>
@@ -616,7 +610,6 @@
         weekCard.innerHTML = weekHTML;
         grid.appendChild(weekCard);
 
-        // Rendering Chart.js per ciascuna delle 7 colonne della settimana
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
           const currentDayDate = new Date(mondayDate);
           currentDayDate.setDate(currentDayDate.getDate() + dayOffset);
