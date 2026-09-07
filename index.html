@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 - Analytics & Orologi Attività</title>
+  <title>ESP32 - Monitor & Analytics Attività</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -51,12 +51,11 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
-    /* Sezione Grafici di Analisi */
     .analytics-section {
       max-width: 1300px;
       margin: 0 auto 40px auto;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 25px;
     }
     .analytics-card {
@@ -67,7 +66,7 @@
       box-shadow: 0 12px 30px rgba(0,0,0,0.5);
     }
     .analytics-title {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       color: #58a6ff;
       font-weight: bold;
       margin-bottom: 15px;
@@ -76,11 +75,10 @@
       text-align: center;
     }
 
-    /* Griglia Orologi */
     .section-title {
       max-width: 1300px;
       margin: 0 auto 20px auto;
-      font-size: 1.3rem;
+      font-size: 1.2rem;
       color: #ffffff;
       border-bottom: 1px solid #212936;
       padding-bottom: 10px;
@@ -89,7 +87,7 @@
     }
     .grid-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 25px;
       max-width: 1300px;
       margin: 0 auto;
@@ -138,9 +136,19 @@
     }
     .loading-state {
       text-align: center;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       color: #788ba6;
       margin-top: 50px;
+    }
+    .error-state {
+      color: #f85149;
+      border: 1px solid #f85149;
+      background: rgba(248, 81, 73, 0.1);
+      padding: 15px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: 30px auto;
+      text-align: center;
     }
   </style>
 </head>
@@ -155,9 +163,8 @@
     </a>
   </header>
 
-  <div id="loading" class="loading-state">Caricamento ed elaborazione grafici da Google Drive...</div>
+  <div id="loading" class="loading-state">Caricamento ed elaborazione dati da Google Drive...</div>
 
-  <!-- SEZIONE GRAFICI DI ANALISI -->
   <div id="analyticsWrapper" style="display: none;">
     <div class="analytics-section">
       <div class="analytics-card">
@@ -179,44 +186,102 @@
 
     let barChartInstance = null;
     let pieChartInstance = null;
+    let dataLoadedSuccess = false;
+
+    // Estrae l'ora numerica (0..23) da qualsiasi stringa o formato orario/ISO
+    function parseHour(timeStr) {
+      if (!timeStr) return -1;
+      let str = String(timeStr).trim();
+      if (str.includes("T")) {
+        str = str.split("T")[1]; // Gestione orari in formato ISO Date
+      }
+      const parts = str.split(":");
+      if (parts.length >= 1) {
+        const h = parseInt(parts[0], 10);
+        if (!isNaN(h) && h >= 0 && h < 24) return h;
+      }
+      return -1;
+    }
+
+    // Estrae la stringa Data pulita (YYYY-MM-DD)
+    function parseDate(dateVal) {
+      if (!dateVal) return "";
+      let str = String(dateVal).trim();
+      if (str.includes("T")) {
+        str = str.split("T")[0];
+      }
+      return str;
+    }
 
     function loadDataFromDrive() {
       const oldScript = document.getElementById('jsonp-script');
       if (oldScript) oldScript.remove();
 
+      dataLoadedSuccess = false;
+
       const script = document.createElement('script');
       script.id = 'jsonp-script';
       script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
+      
+      script.onerror = function() {
+        showError("Impossibile contattare Google Apps Script. Verificare la connessione o l'URL Webhook.");
+      };
+
       document.body.appendChild(script);
+
+      // Timeout di sicurezza dopo 12 secondi
+      setTimeout(() => {
+        if (!dataLoadedSuccess) {
+          const loadingDiv = document.getElementById("loading");
+          if (loadingDiv && loadingDiv.style.display !== "none") {
+            loadingDiv.innerHTML = "Risposta lenta da Google Apps Script. Riprovo la connessione...";
+            loadDataFromDrive();
+          }
+        }
+      }, 12000);
+    }
+
+    function showError(msg) {
+      document.getElementById("loading").style.display = "none";
+      const wrapper = document.getElementById("analyticsWrapper");
+      wrapper.style.display = "block";
+      wrapper.innerHTML = `<div class="error-state">⚠️ <b>ERRORE:</b> ${msg}</div>`;
     }
 
     function processAndRender(data) {
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("analyticsWrapper").style.display = "block";
+      try {
+        dataLoadedSuccess = true;
+        document.getElementById("loading").style.display = "none";
 
-      const dailyMap = {};
+        if (!data || !Array.isArray(data) || data.length < 2) {
+          showError("Il foglio Google Drive non contiene righe di dati valide.");
+          return;
+        }
 
-      for (let i = 1; i < data.length; i++) {
-        const rowDate = String(data[i][0]).trim();        // Col A: DATA
-        const startTimeStr = String(data[i][1]).trim();   // Col B: ORA ACCENSIONE
-        const endTimeStr = String(data[i][2]).trim();     // Col C: ULTIMO SEGNALE
-        const activeMins = parseInt(data[i][3], 10) || 0; // Col D: MINUTI ATTIVI
+        document.getElementById("analyticsWrapper").style.display = "block";
 
-        if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
-          if (!dailyMap[rowDate]) {
-            dailyMap[rowDate] = {
-              hourly: new Array(24).fill(false),
-              totalMins: 0
-            };
-          }
+        const dailyMap = {};
 
-          dailyMap[rowDate].totalMins += activeMins;
+        for (let i = 1; i < data.length; i++) {
+          const rowDate = parseDate(data[i][0]);             // Col A: DATA
+          const startTimeStr = String(data[i][1] || "");      // Col B: ORA ACCENSIONE
+          const endTimeStr = String(data[i][2] || "");        // Col C: ULTIMO SEGNALE
+          const activeMins = parseInt(data[i][3], 10) || 0;  // Col D: MINUTI ATTIVI
 
-          if (startTimeStr && endTimeStr && startTimeStr.length >= 5 && endTimeStr.length >= 5) {
-            const startHour = parseInt(startTimeStr.split(":")[0], 10);
-            const endHour = parseInt(endTimeStr.split(":")[0], 10);
+          if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
+            if (!dailyMap[rowDate]) {
+              dailyMap[rowDate] = {
+                hourly: new Array(24).fill(false),
+                totalMins: 0
+              };
+            }
 
-            if (!isNaN(startHour) && !isNaN(endHour)) {
+            dailyMap[rowDate].totalMins += activeMins;
+
+            const startHour = parseHour(startTimeStr);
+            const endHour = parseHour(endTimeStr);
+
+            if (startHour !== -1 && endHour !== -1) {
               for (let h = startHour; h <= endHour; h++) {
                 if (h >= 0 && h < 24) {
                   dailyMap[rowDate].hourly[h] = true;
@@ -225,19 +290,27 @@
             }
           }
         }
+
+        const sortedDates = Object.keys(dailyMap).sort();
+
+        if (sortedDates.length === 0) {
+          showError("Nessuna riga di log valida trovata all'interno del foglio.");
+          return;
+        }
+
+        // 1. Rendering Grafici di Analisi
+        renderAnalyticsCharts(sortedDates, dailyMap);
+
+        // 2. Rendering Orologi Circolari
+        renderClockCards(sortedDates.slice().reverse(), dailyMap);
+
+      } catch (err) {
+        console.error("Errore elaborazione dati:", err);
+        showError("Errore durante l'elaborazione dei grafici: " + err.message);
       }
-
-      const sortedDates = Object.keys(dailyMap).sort(); // Ordine cronologico per il grafico a barre
-
-      // 1. GENERAZIONE GRAFICI DI ANALISI STATISTICA
-      renderAnalyticsCharts(sortedDates, dailyMap);
-
-      // 2. GENERAZIONE OROLOGI CIRCOLARI
-      renderClockCards(sortedDates.slice().reverse(), dailyMap);
     }
 
     function renderAnalyticsCharts(dates, dailyMap) {
-      // Dati per Grafico a Barre (Ore per giorno)
       const labelsDays = dates;
       const dataHoursDays = dates.map(d => (dailyMap[d].totalMins / 60).toFixed(1));
 
@@ -264,7 +337,6 @@
         }
       });
 
-      // Dati per Grafico a Torta (Fasce orarie: Notte 00-06, Mattina 06-12, Pomeriggio 12-18, Sera 18-24)
       let notte = 0, mattina = 0, pomeriggio = 0, sera = 0;
 
       dates.forEach(d => {
