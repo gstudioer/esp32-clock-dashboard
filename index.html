@@ -178,23 +178,49 @@
       flex-direction: column;
       align-items: center;
       min-width: 0;
+      position: relative;
     }
     .day-column.empty {
       opacity: 0.45;
       border-style: dashed;
     }
+    .day-column.offline-warning {
+      border-color: #ff4d4d;
+      box-shadow: 0 0 10px rgba(255, 77, 77, 0.2);
+    }
+
+    .status-pill {
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+    .status-online {
+      background: rgba(56, 239, 125, 0.15);
+      color: #38ef7d;
+      border: 1px solid #38ef7d;
+    }
+    .status-offline {
+      background: rgba(255, 77, 77, 0.15);
+      color: #ff4d4d;
+      border: 1px solid #ff4d4d;
+    }
+
     .day-name-header {
       font-size: 0.85rem;
       font-weight: 800;
       color: #58a6ff;
       text-transform: uppercase;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       letter-spacing: 1px;
     }
     .day-date-sub {
       font-size: 0.75rem;
       color: #788ba6;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       font-weight: 600;
     }
 
@@ -298,12 +324,14 @@
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    // NUOVA TAVOLOZZA COLORI PERSONALIZZATA
+    // TAVOLOZZA COLORI
     const COLOR_INATTIVO = "#787878";   // GRIGIO CHIARO
     const COLOR_NOTTE = "#00184d";      // BLU NOTTE SCURO (00:00 - 06:00)
     const COLOR_MATTINA = "#9fe2fc";    // AZZURRO CHIARO (06:00 - 12:00)
     const COLOR_POMERIGGIO = "#ffd70f"; // GIALLO ARANCIO (12:00 - 18:00)
     const COLOR_SERA = "#0f6fff";       // BLU INTENSO (18:00 - 24:00)
+
+    const TIMEOUT_MINUTI_INATTIVO = 3; // Dopo 3 minuti senza PING segnala INATTIVO
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
@@ -353,6 +381,27 @@
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
+    }
+
+    // Verifica se l'ultimo PING è scaduto oltre la soglia di inattività
+    function checkIsOffline(lastSignalStr, dateStr) {
+      if (!lastSignalStr) return true;
+
+      const todayStr = formatDateStandard(new Date());
+      // Se il giorno del log non è oggi, consideriamo la sessione chiusa normalmente
+      if (dateStr !== todayStr) return false;
+
+      const parts = lastSignalStr.split(":");
+      if (parts.length < 2) return true;
+
+      const now = new Date();
+      const lastPingDate = new Date();
+      lastPingDate.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2] || 0, 10));
+
+      const diffMs = now.getTime() - lastPingDate.getTime();
+      const diffMins = diffMs / (1000 * 60);
+
+      return diffMins > TIMEOUT_MINUTI_INATTIVO;
     }
 
     function processAndRender(data) {
@@ -565,12 +614,16 @@
           if (dayData) {
             const hrs = Math.floor(dayData.totalMins / 60);
             const mins = dayData.totalMins % 60;
+            const isOffline = checkIsOffline(dayData.lastSignal, currentDayStr);
 
             weekHTML += `
-              <div class="day-column">
+              <div class="day-column ${isOffline ? 'offline-warning' : ''}">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="chart-container-sm">
+                <div class="status-pill ${isOffline ? 'status-offline' : 'status-online'}">
+                  ${isOffline ? '⚠️ INATTIVO' : '🟢 ATTIVO'}
+                </div>
+                <div class="chart-container-sm" style="margin-top: 6px;">
                   <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                   <div class="chart-center-text-sm">
                     ${hrs}h ${mins}m
@@ -583,7 +636,7 @@
                   </div>
                   <div class="ts-row">
                     <span class="ts-label-sm">📡 SIG:</span>
-                    <span class="ts-val-sm" style="color: #58a6ff;">${dayData.lastSignal ? dayData.lastSignal.substring(0, 5) : "--:--"}</span>
+                    <span class="ts-val-sm" style="color: ${isOffline ? '#ff4d4d' : '#58a6ff'};">${dayData.lastSignal ? dayData.lastSignal.substring(0, 5) : "--:--"}</span>
                   </div>
                 </div>
               </div>
@@ -593,7 +646,10 @@
               <div class="day-column empty">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                <div class="chart-container-sm">
+                <div class="status-pill" style="background: rgba(120,120,120,0.1); color: #787878; border: 1px solid #787878;">
+                  OFF
+                </div>
+                <div class="chart-container-sm" style="margin-top: 6px;">
                   <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                   <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
                 </div>
