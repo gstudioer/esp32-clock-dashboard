@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Orologi di Utilizzo ESP32 - Google Drive</title>
+  <title>ESP32 - Monitor Orologi Attività</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -28,11 +28,31 @@
     p.subtitle {
       color: #788ba6;
       font-size: 0.95rem;
-      margin: 0;
+      margin: 0 0 18px 0;
+    }
+    .drive-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: #1a212d;
+      color: #38ef7d;
+      border: 1px solid #38ef7d;
+      padding: 8px 18px;
+      border-radius: 20px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+    }
+    .drive-link-btn:hover {
+      background-color: #38ef7d;
+      color: #0b0e14;
+      box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     .grid-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
       gap: 25px;
       max-width: 1300px;
       margin: 0 auto;
@@ -44,11 +64,6 @@
       padding: 25px 20px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.5);
       text-align: center;
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    .clock-card:hover {
-      transform: translateY(-4px);
-      border-color: #38ef7d;
     }
     .date-badge {
       display: inline-block;
@@ -95,11 +110,16 @@
 <body>
 
   <header>
-    <h1>ESP32 - Activity Clock Monitor</h1>
-    <p class="subtitle">Orologi di utilizzo calcolati direttamente dal foglio Drive</p>
+    <h1>ESP32 - Monitor Orologi Attività</h1>
+    <p class="subtitle">Visualizzazione dinamica sessioni da Google Drive</p>
+    
+    <!-- Link al foglio Google Sheets RAW_LOGS -->
+    <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
+      📊 APRI FOGLIO RAW_LOGS
+    </a>
   </header>
 
-  <div id="loading" class="loading-state">Caricamento dati dal foglio in corso...</div>
+  <div id="loading" class="loading-state">Lettura dati dal foglio in corso...</div>
   <div id="clocksGrid" class="grid-container"></div>
 
   <script>
@@ -120,21 +140,34 @@
       const grid = document.getElementById("clocksGrid");
       grid.innerHTML = "";
 
-      // Mappa per raggruppare le ore di attività per ogni data
       const dailyMap = {};
 
       for (let i = 1; i < data.length; i++) {
-        const rowDate = String(data[i][0]).trim();
-        const lastSignalTime = String(data[i][2]).trim();
+        const rowDate = String(data[i][0]).trim();        // Col A: DATA
+        const startTimeStr = String(data[i][1]).trim();   // Col B: ORA ACCENSIONE
+        const endTimeStr = String(data[i][2]).trim();     // Col C: ULTIMO SEGNALE
+        const activeMins = parseInt(data[i][3], 10) || 0; // Col D: MINUTI ATTIVI
 
         if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
           if (!dailyMap[rowDate]) {
-            dailyMap[rowDate] = new Array(24).fill(0);
+            dailyMap[rowDate] = {
+              hourly: new Array(24).fill(false),
+              totalMins: 0
+            };
           }
-          if (lastSignalTime && lastSignalTime.length >= 8) {
-            const hour = parseInt(lastSignalTime.split(":")[0], 10);
-            if (!isNaN(hour) && hour >= 0 && hour < 24) {
-              dailyMap[rowDate][hour] += 1;
+
+          dailyMap[rowDate].totalMins += activeMins;
+
+          if (startTimeStr && endTimeStr && startTimeStr.length >= 5 && endTimeStr.length >= 5) {
+            const startHour = parseInt(startTimeStr.split(":")[0], 10);
+            const endHour = parseInt(endTimeStr.split(":")[0], 10);
+
+            if (!isNaN(startHour) && !isNaN(endHour)) {
+              for (let h = startHour; h <= endHour; h++) {
+                if (h >= 0 && h < 24) {
+                  dailyMap[rowDate].hourly[h] = true;
+                }
+              }
             }
           }
         }
@@ -143,20 +176,15 @@
       const sortedDates = Object.keys(dailyMap).reverse();
 
       if (sortedDates.length === 0) {
-        grid.innerHTML = "<div class='loading-state'>Nessun dato registrato nel foglio Drive.</div>";
+        grid.innerHTML = "<div class='loading-state'>Nessun dato valido trovato nel foglio.</div>";
         return;
       }
 
       sortedDates.forEach((dateKey, index) => {
-        const hourlyActivity = dailyMap[dateKey];
-        
-        // Calcolo minuti attivi relativi al giorno
-        const activeUnits = hourlyActivity.reduce((acc, count) => acc + (count > 0 ? 1 : 0), 0);
-        const totalMinutes = activeUnits * 15; // Ogni impulso equivale alla finestra di attività
-        const hrs = Math.floor(totalMinutes / 60);
-        const mins = totalMinutes % 60;
+        const dayData = dailyMap[dateKey];
+        const hrs = Math.floor(dayData.totalMins / 60);
+        const mins = dayData.totalMins % 60;
 
-        // Genera la Card per l'Orologio del giorno
         const card = document.createElement("div");
         card.className = "clock-card";
         card.innerHTML = `
@@ -171,11 +199,9 @@
         `;
         grid.appendChild(card);
 
-        // Mappa colori dell'orologio (Verde = Attivo, Scuro = Inattivo)
-        const bgColors = hourlyActivity.map(count => count > 0 ? '#38ef7d' : '#1a212d');
+        const bgColors = dayData.hourly.map(isActive => isActive ? '#38ef7d' : '#1a212d');
         const labels = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
-        // Disegna l'orologio grafico a 24 ore
         const ctx = document.getElementById(`clockCanvas_${index}`).getContext('2d');
         new Chart(ctx, {
           type: 'doughnut',
@@ -196,7 +222,7 @@
                 callbacks: {
                   label: function(ctx) {
                     const hour = ctx.dataIndex;
-                    const status = hourlyActivity[hour] > 0 ? "ATTIVO" : "INATTIVO";
+                    const status = dayData.hourly[hour] ? "ATTIVO" : "INATTIVO";
                     return ` Ora ${hour}:00 - Status: ${status}`;
                   }
                 }
