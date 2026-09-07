@@ -356,4 +356,156 @@
       });
 
       if (pieChartInstance) pieChartInstance.destroy();
-      const
+      const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
+      pieChartInstance = new Chart(ctxPie, {
+        type: 'pie',
+        data: {
+          labels: ['Notte (00-06)', 'Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)'],
+          datasets: [{
+            data: [notte, mattina, pomeriggio, sera],
+            backgroundColor: ['#11998e', '#38ef7d', '#58a6ff', '#d29922']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: '#e1e6ed' } }
+          }
+        }
+      });
+    }
+
+    function createDoughnutSafely(canvasId, bgColors, labels) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: new Array(labels.length).fill(1),
+            backgroundColor: bgColors,
+            borderWidth: 2,
+            borderColor: '#0b0e14'
+          }]
+        },
+        options: {
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const isAct = bgColors[ctx.dataIndex] !== '#1a212d';
+                  return ` ${labels[ctx.dataIndex]} - ${isAct ? 'ATTIVO' : 'INATTIVO'}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderClockCards(datesReversed, dailyMap) {
+      const grid = document.getElementById("clocksGrid");
+      grid.innerHTML = "";
+
+      datesReversed.forEach((dateKey, index) => {
+        const dayData = dailyMap[dateKey];
+        const hrs = Math.floor(dayData.totalMins / 60);
+        const mins = dayData.totalMins % 60;
+
+        let countNotte = 0, countMattina = 0, countPomeriggio = 0, countSera = 0;
+        dayData.hourly.forEach((isActive, h) => {
+          if (isActive) {
+            if (h >= 0 && h < 6) countNotte++;
+            else if (h >= 6 && h < 12) countMattina++;
+            else if (h >= 12 && h < 18) countPomeriggio++;
+            else countSera++;
+          }
+        });
+
+        const dayCard = document.createElement("div");
+        dayCard.className = "day-card";
+        dayCard.innerHTML = `
+          <div class="day-header">
+            <div class="date-badge">GIORNO: ${dateKey}</div>
+            <div class="day-total-badge">Tempo Totale Attivo: ${hrs}h ${mins}m</div>
+          </div>
+
+          <div class="clocks-row">
+            <div class="clock-box">
+              <div class="clock-title">Orologio 24 Ore</div>
+              <div class="chart-container">
+                <canvas id="clock24_${index}"></canvas>
+                <div class="chart-center-text">${hrs}h ${mins}m</div>
+              </div>
+            </div>
+
+            <div class="clock-box">
+              <div class="clock-title">Diurno (06:00 - 18:00)</div>
+              <div class="chart-container">
+                <canvas id="clockDay_${index}"></canvas>
+                <div class="chart-center-text" style="color: #38ef7d;">${countMattina + countPomeriggio}h</div>
+              </div>
+            </div>
+
+            <div class="clock-box">
+              <div class="clock-title">Notturno (18:00 - 06:00)</div>
+              <div class="chart-container">
+                <canvas id="clockNight_${index}"></canvas>
+                <div class="chart-center-text" style="color: #58a6ff;">${countNotte + countSera}h</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fasce-grid">
+            <div class="fascia-item">
+              <div class="fascia-label">🌙 Notte (00:00 - 06:00)</div>
+              <div class="fascia-val">${countNotte} Ore Attive</div>
+              <div class="fascia-bar-bg"><div class="fascia-bar-fill" style="width: ${(countNotte/6)*100}%; background: #11998e;"></div></div>
+            </div>
+            <div class="fascia-item">
+              <div class="fascia-label">🌅 Mattina (06:00 - 12:00)</div>
+              <div class="fascia-val">${countMattina} Ore Attive</div>
+              <div class="fascia-bar-bg"><div class="fascia-bar-fill" style="width: ${(countMattina/6)*100}%; background: #38ef7d;"></div></div>
+            </div>
+            <div class="fascia-item">
+              <div class="fascia-label">☀️ Pomeriggio (12:00 - 18:00)</div>
+              <div class="fascia-val">${countPomeriggio} Ore Attive</div>
+              <div class="fascia-bar-bg"><div class="fascia-bar-fill" style="width: ${(countPomeriggio/6)*100}%; background: #58a6ff;"></div></div>
+            </div>
+            <div class="fascia-item">
+              <div class="fascia-label">🌆 Sera (18:00 - 24:00)</div>
+              <div class="fascia-val">${countSera} Ore Attive</div>
+              <div class="fascia-bar-bg"><div class="fascia-bar-fill" style="width: ${(countSera/6)*100}%; background: #d29922;"></div></div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(dayCard);
+
+        // Rendering sicuro di ciascun grafico dopo che l'HTML è stato iniettato nel DOM
+        const colors24 = dayData.hourly.map(a => a ? '#38ef7d' : '#1a212d');
+        createDoughnutSafely(`clock24_${index}`, colors24, Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`));
+
+        const hourlyDay = dayData.hourly.slice(6, 18);
+        const colorsDay = hourlyDay.map(a => a ? '#38ef7d' : '#1a212d');
+        const labelsDay = Array.from({length: 12}, (_, i) => `${(i + 6).toString().padStart(2, '0')}:00`);
+        createDoughnutSafely(`clockDay_${index}`, colorsDay, labelsDay);
+
+        const hourlyNight = [...dayData.hourly.slice(18, 24), ...dayData.hourly.slice(0, 6)];
+        const colorsNight = hourlyNight.map(a => a ? '#58a6ff' : '#1a212d');
+        const labelsNight = Array.from({length: 12}, (_, i) => {
+          const h = (i + 18) % 24;
+          return `${h.toString().padStart(2, '0')}:00`;
+        });
+        createDoughnutSafely(`clockNight_${index}`, colorsNight, labelsNight);
+      });
+    }
+
+    loadDataFromDrive();
+    setInterval(loadDataFromDrive, 30000);
+  </script>
+</body>
+</html>
