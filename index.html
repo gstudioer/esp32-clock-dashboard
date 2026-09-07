@@ -148,12 +148,13 @@
     <h1>ESP32 - Monitor & Analytics Attività</h1>
     <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
     
-    <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
+    <!-- Link diretto alla scheda RAW_LOGS (gid=211746529) -->
+    <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?gid=211746529#gid=211746529" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
       📊 APRI FOGLIO RAW_LOGS
     </a>
   </header>
 
-  <div id="loading" class="loading-state">Connessione e caricamento dati in corso...</div>
+  <div id="loading" class="loading-state">Connessione e caricamento dati dal foglio RAW_LOGS in corso...</div>
 
   <div id="analyticsWrapper" style="display: none;">
     <div class="analytics-section">
@@ -172,12 +173,11 @@
   </div>
 
   <script>
-    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true&gid=211746529";
 
     let barChartInstance = null;
     let pieChartInstance = null;
 
-    // Connessione pulita via tag Script JSONP
     function loadDataFromDrive() {
       const oldScript = document.getElementById('jsonp-script');
       if (oldScript) oldScript.remove();
@@ -188,7 +188,6 @@
       document.body.appendChild(script);
     }
 
-    // Estrae l'ora numerica
     function parseHour(timeStr) {
       if (!timeStr) return -1;
       let str = String(timeStr).trim();
@@ -201,7 +200,6 @@
       return -1;
     }
 
-    // Estrae la data YYYY-MM-DD
     function parseDate(dateVal) {
       if (!dateVal) return "";
       let str = String(dateVal).trim();
@@ -209,7 +207,6 @@
       return str;
     }
 
-    // Funzione richiamata automaticamente dal Webhook Google
     function processAndRender(data) {
       document.getElementById("loading").style.display = "none";
       document.getElementById("analyticsWrapper").style.display = "block";
@@ -249,10 +246,10 @@
 
       const sortedDates = Object.keys(dailyMap).sort();
 
-      // 1. Grafici di Analisi
+      // 1. Render Grafici
       renderAnalyticsCharts(sortedDates, dailyMap);
 
-      // 2. Orologi 24 Ore
+      // 2. Render Orologi 24H
       renderClockCards(sortedDates.slice().reverse(), dailyMap);
     }
 
@@ -373,7 +370,6 @@
       });
     }
 
-    // Avvio caricamento
     loadDataFromDrive();
     setInterval(loadDataFromDrive, 30000);
   </script>
