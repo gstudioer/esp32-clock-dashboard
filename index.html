@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 - Monitor Orologi Attività</title>
+  <title>ESP32 - Analytics & Orologi Attività</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -50,6 +50,43 @@
       color: #0b0e14;
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
+    
+    /* Sezione Grafici di Analisi */
+    .analytics-section {
+      max-width: 1300px;
+      margin: 0 auto 40px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 25px;
+    }
+    .analytics-card {
+      background: #121721;
+      border: 1px solid #212936;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    }
+    .analytics-title {
+      font-size: 1.1rem;
+      color: #58a6ff;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    /* Griglia Orologi */
+    .section-title {
+      max-width: 1300px;
+      margin: 0 auto 20px auto;
+      font-size: 1.3rem;
+      color: #ffffff;
+      border-bottom: 1px solid #212936;
+      padding-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
     .grid-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
@@ -79,8 +116,8 @@
     }
     .chart-container {
       position: relative;
-      width: 230px;
-      height: 230px;
+      width: 220px;
+      height: 220px;
       margin: 0 auto;
     }
     .chart-center-text {
@@ -110,20 +147,38 @@
 <body>
 
   <header>
-    <h1>ESP32 - Monitor Orologi Attività</h1>
-    <p class="subtitle">Visualizzazione dinamica sessioni da Google Drive</p>
+    <h1>ESP32 - Monitor & Analytics Attività</h1>
+    <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
     
-    <!-- Link al foglio Google Sheets RAW_LOGS -->
     <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?usp=sharing" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
       📊 APRI FOGLIO RAW_LOGS
     </a>
   </header>
 
-  <div id="loading" class="loading-state">Lettura dati dal foglio in corso...</div>
-  <div id="clocksGrid" class="grid-container"></div>
+  <div id="loading" class="loading-state">Caricamento ed elaborazione grafici da Google Drive...</div>
+
+  <!-- SEZIONE GRAFICI DI ANALISI -->
+  <div id="analyticsWrapper" style="display: none;">
+    <div class="analytics-section">
+      <div class="analytics-card">
+        <div class="analytics-title">Ore Attive per Giorno (Totale)</div>
+        <canvas id="barChartDays"></canvas>
+      </div>
+      <div class="analytics-card">
+        <div class="analytics-title">Ripartizione Utilizzo per Fasce Orarie</div>
+        <canvas id="pieChartFasce"></canvas>
+      </div>
+    </div>
+
+    <div class="section-title">Orologi Giornalieri (24 Ore)</div>
+    <div id="clocksGrid" class="grid-container"></div>
+  </div>
 
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
+
+    let barChartInstance = null;
+    let pieChartInstance = null;
 
     function loadDataFromDrive() {
       const oldScript = document.getElementById('jsonp-script');
@@ -131,14 +186,13 @@
 
       const script = document.createElement('script');
       script.id = 'jsonp-script';
-      script.src = WEBHOOK_URL + "&callback=renderAllClocks&t=" + new Date().getTime();
+      script.src = WEBHOOK_URL + "&callback=processAndRender&t=" + new Date().getTime();
       document.body.appendChild(script);
     }
 
-    function renderAllClocks(data) {
+    function processAndRender(data) {
       document.getElementById("loading").style.display = "none";
-      const grid = document.getElementById("clocksGrid");
-      grid.innerHTML = "";
+      document.getElementById("analyticsWrapper").style.display = "block";
 
       const dailyMap = {};
 
@@ -173,14 +227,82 @@
         }
       }
 
-      const sortedDates = Object.keys(dailyMap).reverse();
+      const sortedDates = Object.keys(dailyMap).sort(); // Ordine cronologico per il grafico a barre
 
-      if (sortedDates.length === 0) {
-        grid.innerHTML = "<div class='loading-state'>Nessun dato valido trovato nel foglio.</div>";
-        return;
-      }
+      // 1. GENERAZIONE GRAFICI DI ANALISI STATISTICA
+      renderAnalyticsCharts(sortedDates, dailyMap);
 
-      sortedDates.forEach((dateKey, index) => {
+      // 2. GENERAZIONE OROLOGI CIRCOLARI
+      renderClockCards(sortedDates.slice().reverse(), dailyMap);
+    }
+
+    function renderAnalyticsCharts(dates, dailyMap) {
+      // Dati per Grafico a Barre (Ore per giorno)
+      const labelsDays = dates;
+      const dataHoursDays = dates.map(d => (dailyMap[d].totalMins / 60).toFixed(1));
+
+      if (barChartInstance) barChartInstance.destroy();
+      const ctxBar = document.getElementById('barChartDays').getContext('2d');
+      barChartInstance = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: labelsDays,
+          datasets: [{
+            label: 'Ore Attive',
+            data: dataHoursDays,
+            backgroundColor: '#38ef7d',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
+            y: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } }
+          }
+        }
+      });
+
+      // Dati per Grafico a Torta (Fasce orarie: Notte 00-06, Mattina 06-12, Pomeriggio 12-18, Sera 18-24)
+      let notte = 0, mattina = 0, pomeriggio = 0, sera = 0;
+
+      dates.forEach(d => {
+        dailyMap[d].hourly.forEach((isActive, hour) => {
+          if (isActive) {
+            if (hour >= 0 && hour < 6) notte++;
+            else if (hour >= 6 && hour < 12) mattina++;
+            else if (hour >= 12 && hour < 18) pomeriggio++;
+            else sera++;
+          }
+        });
+      });
+
+      if (pieChartInstance) pieChartInstance.destroy();
+      const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
+      pieChartInstance = new Chart(ctxPie, {
+        type: 'pie',
+        data: {
+          labels: ['Notte (00-06)', 'Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)'],
+          datasets: [{
+            data: [notte, mattina, pomeriggio, sera],
+            backgroundColor: ['#11998e', '#38ef7d', '#58a6ff', '#d29922']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: '#e1e6ed' } }
+          }
+        }
+      });
+    }
+
+    function renderClockCards(datesReversed, dailyMap) {
+      const grid = document.getElementById("clocksGrid");
+      grid.innerHTML = "";
+
+      datesReversed.forEach((dateKey, index) => {
         const dayData = dailyMap[dateKey];
         const hrs = Math.floor(dayData.totalMins / 60);
         const mins = dayData.totalMins % 60;
