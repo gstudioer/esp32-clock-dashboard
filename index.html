@@ -1085,7 +1085,7 @@
         }
       });
 
-      // CONVERTITO DA PIE/DOUGHNUT A BAR CHART PER FASCE ORARIE
+      // GRAFICO A BARRE PER LA RIPARTIZIONE PER FASCE ORARIE
       if (pieChartInstance) pieChartInstance.destroy();
       const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
       pieChartInstance = new Chart(ctxPie, {
@@ -1101,9 +1101,7 @@
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
             y: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } }
