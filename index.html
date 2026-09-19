@@ -674,23 +674,50 @@
       saveEventOptions();
     }
 
+    // NUOVA GESTIONE CON PROMPT PRESET NUMERATI E TESTUALE
     function promptAddEventForHour(dateStr, hourIndex) {
       const hourLabel = `${hourIndex.toString().padStart(2, '0')}:00`;
       const currentAssigned = (hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][hourIndex]) || "Nessuno";
       
-      const newEvent = prompt(`Associa o modifica evento per la data ${dateStr} alle ORE ${hourLabel}:\n(Lascia vuoto per cancellare l'evento)`, currentAssigned === "Nessuno" ? "" : currentAssigned);
+      const availablePresets = customEventOptions.filter(opt => opt !== "Nessuno");
 
-      if (newEvent !== null) {
-        const cleanVal = newEvent.trim();
-        if (cleanVal !== "") {
-          if (!customEventOptions.includes(cleanVal)) {
-            customEventOptions.push(cleanVal);
+      let promptMsg = `Associa evento per ${dateStr} alle ORE ${hourLabel}:\n`;
+      promptMsg += `Attualmente assegnato: "${currentAssigned}"\n\n`;
+
+      if (availablePresets.length > 0) {
+        promptMsg += `PRESET DISPONIBILI (Digita il Numero):\n`;
+        availablePresets.forEach((preset, idx) => {
+          promptMsg += `${idx + 1}. ${preset}\n`;
+        });
+        promptMsg += `\nOppure scrivi il NOME di un nuovo evento, oppure lascia vuoto per cancellare:`;
+      } else {
+        promptMsg += `Scrivi il NOME del nuovo evento (lascia vuoto per cancellare):`;
+      }
+
+      const input = prompt(promptMsg);
+
+      if (input !== null) {
+        const cleanInput = input.trim();
+
+        if (cleanInput === "") {
+          assignEventToHour(dateStr, hourIndex, "Nessuno");
+          return;
+        }
+
+        const chosenIndex = parseInt(cleanInput, 10);
+        let selectedEventName = "";
+
+        if (!isNaN(chosenIndex) && chosenIndex >= 1 && chosenIndex <= availablePresets.length) {
+          selectedEventName = availablePresets[chosenIndex - 1];
+        } else {
+          selectedEventName = cleanInput;
+          if (!customEventOptions.includes(selectedEventName)) {
+            customEventOptions.push(selectedEventName);
             localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
           }
-          assignEventToHour(dateStr, hourIndex, cleanVal);
-        } else {
-          assignEventToHour(dateStr, hourIndex, "Nessuno");
         }
+
+        assignEventToHour(dateStr, hourIndex, selectedEventName);
       }
     }
 
@@ -1085,7 +1112,6 @@
         }
       });
 
-      // GRAFICO A BARRE PER LA RIPARTIZIONE PER FASCE ORARIE
       if (pieChartInstance) pieChartInstance.destroy();
       const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
       pieChartInstance = new Chart(ctxPie, {
