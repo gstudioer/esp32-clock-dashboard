@@ -59,7 +59,7 @@
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
     
-    /* MODALI (SETTINGS & DETTAGLIO OROLOGIO) */
+    /* MODALI */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -76,7 +76,7 @@
       border-radius: 16px;
       padding: 25px;
       width: 90%;
-      max-width: 520px;
+      max-width: 540px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.8);
       position: relative;
       max-height: 90vh;
@@ -155,6 +155,43 @@
       font-size: 0.75rem;
     }
 
+    .selection-bar {
+      display: none;
+      background: #1a212d;
+      border: 1px solid #38ef7d;
+      padding: 10px 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .selection-text {
+      font-size: 0.85rem;
+      color: #e1e6ed;
+      font-weight: 600;
+    }
+    .action-btn-sm {
+      background: #38ef7d;
+      color: #0b0e14;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .cancel-btn-sm {
+      background: #ff4d4d;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
     .minute-details-box {
       margin-top: 15px;
       background: #0b0e14;
@@ -196,6 +233,25 @@
       border-radius: 4px;
       font-size: 0.75rem;
       font-weight: 600;
+    }
+
+    .assigned-events-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .assigned-event-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #121721;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+      border: 1px solid #1f2733;
     }
 
     .filter-container {
@@ -522,12 +578,21 @@
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO OROLOGIO -->
+  <!-- MODALE DETTAGLIO OROLOGIO E SELEZIONE MULTIPLA -->
   <div id="clockDetailModal" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
         <span class="modal-title" id="modalClockDate">Dettaglio Orologio</span>
         <button class="close-btn" onclick="closeClockModal()">&times;</button>
+      </div>
+
+      <!-- Barra Selezione Multipla -->
+      <div id="multiSelectionBar" class="selection-bar">
+        <span class="selection-text" id="multiSelectionText">Ore Selezionate: 0</span>
+        <div>
+          <button class="action-btn-sm" onclick="applyEventToMultiSelection()">ASSEGNA EVENTO</button>
+          <button class="cancel-btn-sm" onclick="clearMultiSelection()">ANNULLA</button>
+        </div>
       </div>
       
       <div style="position: relative; width: 220px; height: 220px; margin: 10px auto; cursor: pointer;">
@@ -627,11 +692,15 @@
     const COLOR_MATTINA = "#9fe2fc";    
     const COLOR_POMERIGGIO = "#ffd70f"; 
     const COLOR_SERA = "#0f6fff";       
+    const COLOR_SELEZIONATO = "#ff0055";
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
 
     let customEventOptions = JSON.parse(localStorage.getItem("esp32_event_options")) || ["Nessuno"];
     let hourlyEventAssignments = JSON.parse(localStorage.getItem("esp32_hourly_events")) || {};
+
+    let selectedHoursMap = {}; // { dateStr: Set([hour1, hour2, ...]) }
+    let activeModalDate = null;
 
     function saveEventOptions() {
       localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
@@ -674,50 +743,130 @@
       saveEventOptions();
     }
 
-    // NUOVA GESTIONE CON PROMPT PRESET NUMERATI E TESTUALE
-    function promptAddEventForHour(dateStr, hourIndex) {
-      const hourLabel = `${hourIndex.toString().padStart(2, '0')}:00`;
-      const currentAssigned = (hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][hourIndex]) || "Nessuno";
+    // GESTIONE SELEZIONE MULTIPLA E ASSEGNAZIONE/MODIFICA/CANCELLAZIONE
+    function toggleHourSelection(dateStr, hourIndex) {
+      if (!selectedHoursMap[dateStr]) {
+        selectedHoursMap[dateStr] = new Set();
+      }
       
+      if (selectedHoursMap[dateStr].has(hourIndex)) {
+        selectedHoursMap[dateStr].delete(hourIndex);
+      } else {
+        selectedHoursMap[dateStr].add(hourIndex);
+      }
+
+      updateMultiSelectionUI(dateStr);
+    }
+
+    function updateMultiSelectionUI(dateStr) {
+      const set = selectedHoursMap[dateStr] || new Set();
+      const bar = document.getElementById("multiSelectionBar");
+      const txt = document.getElementById("multiSelectionText");
+
+      if (set.size > 0) {
+        bar.style.display = "flex";
+        const sorted = Array.from(set).sort((a,b) => a - b).map(h => `${h.toString().padStart(2,'0')}:00`);
+        txt.innerHTML = `<strong>${set.size} Ore Selezionate:</strong> ${sorted.join(', ')}`;
+      } else {
+        bar.style.display = "none";
+      }
+
+      refreshModalClockCanvas(dateStr);
+    }
+
+    function clearMultiSelection() {
+      if (activeModalDate) {
+        selectedHoursMap[activeModalDate] = new Set();
+        updateMultiSelectionUI(activeModalDate);
+      }
+    }
+
+    function chooseEventFromPresets(promptTitle) {
       const availablePresets = customEventOptions.filter(opt => opt !== "Nessuno");
 
-      let promptMsg = `Associa evento per ${dateStr} alle ORE ${hourLabel}:\n`;
-      promptMsg += `Attualmente assegnato: "${currentAssigned}"\n\n`;
+      let promptMsg = `${promptTitle}\n\n`;
 
       if (availablePresets.length > 0) {
         promptMsg += `PRESET DISPONIBILI (Digita il Numero):\n`;
         availablePresets.forEach((preset, idx) => {
           promptMsg += `${idx + 1}. ${preset}\n`;
         });
-        promptMsg += `\nOppure scrivi il NOME di un nuovo evento, oppure lascia vuoto per cancellare:`;
+        promptMsg += `\nOppure scrivi il NOME del nuovo evento, oppure premi 0 (o lascia vuoto) per CANCELLARE l'evento:`;
       } else {
-        promptMsg += `Scrivi il NOME del nuovo evento (lascia vuoto per cancellare):`;
+        promptMsg += `Scrivi il NOME dell'evento (0 o vuoto per CANCELLARE):`;
       }
 
       const input = prompt(promptMsg);
 
-      if (input !== null) {
-        const cleanInput = input.trim();
+      if (input === null) return null; // Annullato
 
-        if (cleanInput === "") {
-          assignEventToHour(dateStr, hourIndex, "Nessuno");
-          return;
+      const cleanInput = input.trim();
+
+      if (cleanInput === "" || cleanInput === "0") {
+        return "Nessuno";
+      }
+
+      const chosenIndex = parseInt(cleanInput, 10);
+
+      if (!isNaN(chosenIndex) && chosenIndex >= 1 && chosenIndex <= availablePresets.length) {
+        return availablePresets[chosenIndex - 1];
+      } else {
+        if (!customEventOptions.includes(cleanInput)) {
+          customEventOptions.push(cleanInput);
+          localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
         }
+        return cleanInput;
+      }
+    }
 
-        const chosenIndex = parseInt(cleanInput, 10);
-        let selectedEventName = "";
+    function applyEventToMultiSelection() {
+      if (!activeModalDate) return;
+      const set = selectedHoursMap[activeModalDate];
+      if (!set || set.size === 0) return;
 
-        if (!isNaN(chosenIndex) && chosenIndex >= 1 && chosenIndex <= availablePresets.length) {
-          selectedEventName = availablePresets[chosenIndex - 1];
-        } else {
-          selectedEventName = cleanInput;
-          if (!customEventOptions.includes(selectedEventName)) {
-            customEventOptions.push(selectedEventName);
-            localStorage.setItem("esp32_event_options", JSON.stringify(customEventOptions));
-          }
-        }
+      const eventName = chooseEventFromPresets(`Assegna Evento a ${set.size} Ore Selezionate (${activeModalDate})`);
 
-        assignEventToHour(dateStr, hourIndex, selectedEventName);
+      if (eventName !== null) {
+        set.forEach(hourIndex => {
+          assignEventToHourSilent(activeModalDate, hourIndex, eventName);
+        });
+
+        clearMultiSelection();
+        applyFilter();
+        openClockModal(activeModalDate);
+      }
+    }
+
+    function promptEditSingleHourEvent(dateStr, hourIndex) {
+      const hourLabel = `${hourIndex.toString().padStart(2, '0')}:00`;
+      const currentAssigned = (hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][hourIndex]) || "Nessuno";
+
+      const eventName = chooseEventFromPresets(`Modifica o Cancella Evento per ${dateStr} ore ${hourLabel}\nAttualmente assegnato: "${currentAssigned}"`);
+
+      if (eventName !== null) {
+        assignEventToHour(dateStr, hourIndex, eventName);
+      }
+    }
+
+    function assignEventToHourSilent(dateStr, hourStr, eventVal) {
+      if (!hourlyEventAssignments[dateStr]) {
+        hourlyEventAssignments[dateStr] = {};
+      }
+      if (eventVal === "Nessuno" || !eventVal) {
+        delete hourlyEventAssignments[dateStr][hourStr];
+      } else {
+        hourlyEventAssignments[dateStr][hourStr] = eventVal;
+      }
+      localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
+    }
+
+    function assignEventToHour(dateStr, hourStr, eventVal) {
+      assignEventToHourSilent(dateStr, hourStr, eventVal);
+      applyFilter();
+
+      const modalHeader = document.getElementById("modalClockDate");
+      if (modalHeader && modalHeader.innerText.includes(dateStr)) {
+        openClockModal(dateStr);
       }
     }
 
@@ -783,24 +932,6 @@
       }
     }
 
-    function assignEventToHour(dateStr, hourStr, eventVal) {
-      if (!hourlyEventAssignments[dateStr]) {
-        hourlyEventAssignments[dateStr] = {};
-      }
-      if (eventVal === "Nessuno" || !eventVal) {
-        delete hourlyEventAssignments[dateStr][hourStr];
-      } else {
-        hourlyEventAssignments[dateStr][hourStr] = eventVal;
-      }
-      localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
-      applyFilter();
-
-      const modalHeader = document.getElementById("modalClockDate");
-      if (modalHeader && modalHeader.innerText.includes(dateStr)) {
-        openClockModal(dateStr);
-      }
-    }
-
     function timeToMinutes(tStr) {
       if (!tStr) return 0;
       const parts = tStr.split(":");
@@ -840,7 +971,9 @@
     }
 
     let modalChartInstance = null;
+
     function openClockModal(dateStr) {
+      activeModalDate = dateStr;
       const dayData = cachedDailyMap[dateStr];
       document.getElementById("modalClockDate").innerText = `DETTAGLIO: ${dateStr}`;
       
@@ -856,10 +989,16 @@
       `;
 
       if (hourlyEventAssignments[dateStr] && Object.keys(hourlyEventAssignments[dateStr]).length > 0) {
-        statsHTML += `<hr style="border-color: #212936; margin: 8px 0;"><div style="color: #ffd70f; font-weight: bold;">Eventi Assegnati:</div>`;
-        Object.entries(hourlyEventAssignments[dateStr]).forEach(([h, ev]) => {
-          statsHTML += `<div style="font-size: 0.8rem; color: #e1e6ed;">• Ore ${h.padStart(2, '0')}:00 &rarr; <span style="color: #38ef7d;">${ev}</span></div>`;
+        statsHTML += `<hr style="border-color: #212936; margin: 8px 0;"><div style="color: #ffd70f; font-weight: bold; margin-bottom: 4px;">Eventi Assegnati (Clicca per Modificare/Cancellare):</div>`;
+        statsHTML += `<ul class="assigned-events-list">`;
+        Object.entries(hourlyEventAssignments[dateStr]).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).forEach(([h, ev]) => {
+          statsHTML += `
+            <li class="assigned-event-item">
+              <span>Ore ${h.padStart(2, '0')}:00 &rarr; <strong style="color: #38ef7d;">${ev}</strong></span>
+              <button class="del-opt-btn" onclick="assignEventToHour('${dateStr}', '${h}', 'Nessuno')">Elimina</button>
+            </li>`;
         });
+        statsHTML += `</ul>`;
       }
 
       document.getElementById("modalClockStats").innerHTML = statsHTML;
@@ -888,15 +1027,24 @@
         minuteListElem.innerHTML = `<li class="minute-item" style="color: #788ba6; justify-content: center;">Nessuna sessione registrata.</li>`;
       }
 
+      updateMultiSelectionUI(dateStr);
+      document.getElementById("clockDetailModal").style.display = "flex";
+    }
+
+    function refreshModalClockCanvas(dateStr) {
+      const dayData = cachedDailyMap[dateStr];
+      const selectedSet = selectedHoursMap[dateStr] || new Set();
+
       let colors24 = new Array(24).fill(COLOR_INATTIVO);
-      if (dayData) {
-        colors24 = dayData.hourly.map((a, h) => {
-          if (!a) return COLOR_INATTIVO;
-          if (h >= 0 && h < 6) return COLOR_NOTTE;
-          if (h >= 6 && h < 12) return COLOR_MATTINA;
-          if (h >= 12 && h < 18) return COLOR_POMERIGGIO;
-          return COLOR_SERA;
-        });
+      for (let h = 0; h < 24; h++) {
+        if (selectedSet.has(h)) {
+          colors24[h] = COLOR_SELEZIONATO;
+        } else if (dayData && dayData.hourly[h]) {
+          if (h >= 0 && h < 6) colors24[h] = COLOR_NOTTE;
+          else if (h >= 6 && h < 12) colors24[h] = COLOR_MATTINA;
+          else if (h >= 12 && h < 18) colors24[h] = COLOR_POMERIGGIO;
+          else colors24[h] = COLOR_SERA;
+        }
       }
 
       if (modalChartInstance) modalChartInstance.destroy();
@@ -918,16 +1066,15 @@
           onClick: (e, elements) => {
             if (elements.length > 0) {
               const clickedHour = elements[0].index;
-              promptAddEventForHour(dateStr, clickedHour);
+              toggleHourSelection(dateStr, clickedHour);
             }
           }
         }
       });
-
-      document.getElementById("clockDetailModal").style.display = "flex";
     }
 
     function closeClockModal() {
+      activeModalDate = null;
       document.getElementById("clockDetailModal").style.display = "none";
     }
 
@@ -1165,12 +1312,7 @@
             }
           },
           onClick: (e, elements) => {
-            if (elements.length > 0) {
-              const clickedHour = elements[0].index;
-              promptAddEventForHour(dateStr, clickedHour);
-            } else {
-              openClockModal(dateStr);
-            }
+            openClockModal(dateStr);
           }
         }
       });
@@ -1245,7 +1387,7 @@
                 <div class="day-date-sub">${dayShortDate}</div>
                 
                 <div class="clock-container-area">
-                  <div class="chart-container-sm" title="Clicca su uno spicchio per inserire un evento a quell'ora">
+                  <div class="chart-container-sm" title="Clicca per aprire la finestra di selezione oraria ed eventi">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm">
                       ${hrs}h ${mins}m
@@ -1285,7 +1427,7 @@
                 <div class="day-date-sub">${dayShortDate}</div>
 
                 <div class="clock-container-area">
-                  <div class="chart-container-sm" title="Clicca su uno spicchio per inserire un evento a quell'ora">
+                  <div class="chart-container-sm" title="Clicca per aprire la finestra di selezione oraria ed eventi">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
                     <div class="chart-center-text-sm" style="color: #788ba6;">OFF</div>
                   </div>
