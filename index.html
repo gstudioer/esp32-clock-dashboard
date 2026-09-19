@@ -768,7 +768,6 @@
       localStorage.setItem("esp32_hourly_events", JSON.stringify(hourlyEventAssignments));
       applyFilter();
 
-      // Se la modale è aperta per questo giorno, aggiornala
       const modalHeader = document.getElementById("modalClockDate");
       if (modalHeader && modalHeader.innerText.includes(dateStr)) {
         openClockModal(dateStr);
@@ -1086,21 +1085,28 @@
         }
       });
 
+      // CONVERTITO DA PIE/DOUGHNUT A BAR CHART PER FASCE ORARIE
       if (pieChartInstance) pieChartInstance.destroy();
       const ctxPie = document.getElementById('pieChartFasce').getContext('2d');
       pieChartInstance = new Chart(ctxPie, {
-        type: 'pie',
+        type: 'bar',
         data: {
           labels: ['Mattina (06-12)', 'Pomeriggio (12-18)', 'Sera (18-24)', 'Notte (00-06)'],
           datasets: [{
+            label: 'Ore Registrate',
             data: [mattina, pomeriggio, sera, notte],
-            backgroundColor: [COLOR_MATTINA, COLOR_POMERIGGIO, COLOR_SERA, COLOR_NOTTE]
+            backgroundColor: [COLOR_MATTINA, COLOR_POMERIGGIO, COLOR_SERA, COLOR_NOTTE],
+            borderRadius: 6
           }]
         },
         options: {
           responsive: true,
           plugins: {
-            legend: { labels: { color: '#e1e6ed' } }
+            legend: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
+            y: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } }
           }
         }
       });
