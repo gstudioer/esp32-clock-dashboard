@@ -58,7 +58,7 @@
       color: #0b0e14;
       box-shadow: 0 0 12px rgba(56, 239, 125, 0.4);
     }
-    
+
     /* MODALI */
     .modal-overlay {
       display: none;
@@ -226,9 +226,9 @@
       border: 1px solid #1a212d;
     }
     .minute-time { color: #38ef7d; font-weight: bold; }
-    .minute-dur { 
+    .minute-dur {
       background: #1a212d;
-      color: #ffd70f; 
+      color: #ffd70f;
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 0.75rem;
@@ -554,7 +554,7 @@
   <header>
     <h1>G-STUDIO Logger - Monitor Attività</h1>
     <p class="subtitle">Analisi utilizzo e orologi grafici in tempo reale da Google Drive</p>
-    
+
     <div class="top-actions">
       <a href="https://docs.google.com/spreadsheets/d/1bSqmSoxX1J5v1PqdbkUduWvj497rD2CiM44H181ezSk/edit?gid=211746529#gid=211746529" target="_blank" rel="noopener noreferrer" class="drive-link-btn">
         📊 APRI FOGLIO RAW_LOGS
@@ -594,12 +594,12 @@
           <button class="cancel-btn-sm" onclick="clearMultiSelection()">ANNULLA</button>
         </div>
       </div>
-      
+
       <div style="position: relative; width: 220px; height: 220px; margin: 10px auto; cursor: pointer;">
         <canvas id="modalClockCanvas"></canvas>
         <div id="modalClockCenterText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; font-size: 1.1rem; color: #fff; pointer-events: none;"></div>
       </div>
-      
+
       <div id="modalClockStats" style="background: #0b0e14; border: 1px solid #1f2733; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: left; font-size: 0.85rem; line-height: 1.6;"></div>
 
       <div class="minute-details-box">
@@ -626,11 +626,11 @@
         <div id="totalHoursBadge" class="total-counter-badge">⏱️ TOTALE REGISTRATO: 0h 0m</div>
         <canvas id="barChartDays"></canvas>
       </div>
-      
+
       <div class="analytics-card">
         <div class="analytics-title">Ripartizione Utilizzo Complessiva per Fasce</div>
         <canvas id="pieChartFasce"></canvas>
-        
+
         <div class="symbols-legend">
           <div class="legend-item">
             <svg class="legend-svg" viewBox="0 0 24 24" fill="none" stroke="#9fe2fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -687,11 +687,11 @@
   <script>
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzv_3rDgWIRFjMB8kEwDuTf2FSs8_0BBiw3CjwY-mew4vzMY3OqYMcO0vWB6uWl5wpt/exec?get_data=true";
 
-    const COLOR_INATTIVO = "#787878";   
-    const COLOR_NOTTE = "#00184d";      
-    const COLOR_MATTINA = "#9fe2fc";    
-    const COLOR_POMERIGGIO = "#ffd70f"; 
-    const COLOR_SERA = "#0f6fff";       
+    const COLOR_INATTIVO = "#787878";
+    const COLOR_NOTTE = "#00184d";
+    const COLOR_MATTINA = "#9fe2fc";
+    const COLOR_POMERIGGIO = "#ffd70f";
+    const COLOR_SERA = "#0f6fff";
     const COLOR_SELEZIONATO = "#ff0055";
 
     const WEEKDAYS = ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"];
@@ -748,7 +748,7 @@
       if (!selectedHoursMap[dateStr]) {
         selectedHoursMap[dateStr] = new Set();
       }
-      
+
       if (selectedHoursMap[dateStr].has(hourIndex)) {
         selectedHoursMap[dateStr].delete(hourIndex);
       } else {
@@ -896,7 +896,7 @@
 
         const optListText = deletableOptions.map((o, i) => `${i + 1}. ${o}`).join("\n");
         const choice = prompt(`Digita il numero o il nome della voce da eliminare:\n\n${optListText}`);
-        
+
         if (choice) {
           let optionToDelete = choice.trim();
           const choiceNum = parseInt(choice.trim(), 10);
@@ -940,7 +940,7 @@
 
     function consolidateSessions(rawSessions) {
       if (!rawSessions || rawSessions.length === 0) return [];
-      
+
       const sorted = [...rawSessions].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
       const consolidated = [];
 
@@ -976,7 +976,7 @@
       activeModalDate = dateStr;
       const dayData = cachedDailyMap[dateStr];
       document.getElementById("modalClockDate").innerText = `DETTAGLIO: ${dateStr}`;
-      
+
       const hrs = dayData ? Math.floor(dayData.totalMins / 60) : 0;
       const mins = dayData ? dayData.totalMins % 60 : 0;
       document.getElementById("modalClockCenterText").innerText = `${hrs}h ${mins}m`;
@@ -1012,7 +1012,7 @@
         macroSessions.forEach((sess, idx) => {
           const li = document.createElement("li");
           li.className = "minute-item";
-          
+
           const sHrs = Math.floor(sess.mins / 60);
           const sMins = sess.mins % 60;
           const durStr = sHrs > 0 ? `${sHrs}h ${sMins}m` : `${sMins} min`;
@@ -1112,6 +1112,21 @@
       return str;
     }
 
+    // --- FIX: converte "HH:MM:SS" (o "HH:MM") in minuti totali dalla mezzanotte.
+    // Usata per ricalcolare la durata reale delle sessioni, soprattutto quelle
+    // che attraversano la mezzanotte, dove il foglio spesso riporta 0 minuti.
+    function timeStrToMinutes(tStr) {
+      if (!tStr) return null;
+      let str = String(tStr).trim();
+      if (str.includes("T")) str = str.split("T")[1];
+      const parts = str.split(":");
+      if (parts.length < 2) return null;
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) return null;
+      return h * 60 + m;
+    }
+
     function getMonday(d) {
       const date = new Date(d);
       const day = date.getDay();
@@ -1126,6 +1141,11 @@
       return `${year}-${month}-${day}`;
     }
 
+    // --- FIX: gestisce correttamente le sessioni che attraversano la mezzanotte
+    // (es. accensione 20:51:19 -> spegnimento 01:15:02 del giorno dopo).
+    // Prima: se "mins" nel foglio era 0, la sessione non contava nulla nel totale,
+    // e il ciclo ore attive (startHour..endHour) non eseguiva mai perché
+    // startHour era maggiore di endHour.
     function processAndRender(data) {
       document.getElementById("loading").style.display = "none";
       document.getElementById("analyticsWrapper").style.display = "block";
@@ -1138,7 +1158,27 @@
         const rowDate = parseDate(data[i][0]);
         const startTimeStr = String(data[i][1] || "");
         const endTimeStr = String(data[i][2] || "");
-        const activeMins = parseInt(data[i][3], 10) || 0;
+        let activeMins = parseInt(data[i][3], 10);
+        if (isNaN(activeMins)) activeMins = 0;
+
+        // Ricalcola la durata reale quando il valore nel foglio è 0 o la sessione
+        // attraversa la mezzanotte (fine < inizio), invece di fidarsi ciecamente
+        // della colonna "conteggio" del foglio.
+        const startMins = timeStrToMinutes(startTimeStr);
+        const endMins = timeStrToMinutes(endTimeStr);
+        let crossesMidnight = false;
+
+        if (startMins !== null && endMins !== null) {
+          if (endMins < startMins) {
+            crossesMidnight = true;
+            const realDuration = (24 * 60 - startMins) + endMins;
+            if (activeMins === 0 || activeMins > realDuration) {
+              activeMins = realDuration;
+            }
+          } else if (activeMins === 0) {
+            activeMins = endMins - startMins;
+          }
+        }
 
         if (rowDate && !rowDate.includes("TOTALE") && rowDate !== "DATA") {
           if (!cachedDailyMap[rowDate]) {
@@ -1172,8 +1212,19 @@
           const endHour = parseHour(endTimeStr);
 
           if (startHour !== -1 && endHour !== -1) {
-            for (let h = startHour; h <= endHour; h++) {
-              if (h >= 0 && h < 24) {
+            if (!crossesMidnight) {
+              for (let h = startHour; h <= endHour; h++) {
+                if (h >= 0 && h < 24) {
+                  cachedDailyMap[rowDate].hourly[h] = true;
+                }
+              }
+            } else {
+              // Sessione overnight: marca dalla sera fino alle 23...
+              for (let h = startHour; h <= 23; h++) {
+                cachedDailyMap[rowDate].hourly[h] = true;
+              }
+              // ...e dalla mezzanotte fino all'ora di fine (stesso record/giorno di log).
+              for (let h = 0; h <= endHour; h++) {
                 cachedDailyMap[rowDate].hourly[h] = true;
               }
             }
@@ -1359,7 +1410,7 @@
           const currentDayDate = new Date(mondayDate);
           currentDayDate.setDate(currentDayDate.getDate() + dayOffset);
           const currentDayStr = formatDateStandard(currentDayDate);
-          
+
           const dayData = dailyMap[currentDayStr];
           const dayName = WEEKDAYS[dayOffset];
           const dayShortDate = `${String(currentDayDate.getDate()).padStart(2, '0')}/${String(currentDayDate.getMonth() + 1).padStart(2, '0')}`;
@@ -1367,7 +1418,7 @@
           let eventOptionsHTML = customEventOptions.map(opt => `<option value="${opt}">${opt}</option>`).join("");
           eventOptionsHTML += `<option value="ADD_CUSTOM_OPTION">➕ Inserisci nuova voce...</option>`;
           eventOptionsHTML += `<option value="REMOVE_CUSTOM_OPTION">❌ Elimina una voce...</option>`;
-          
+
           let hoursOptionsHTML = Array.from({length: 24}, (_, h) => `<option value="${h}">${h.toString().padStart(2, '0')}:00</option>`).join("");
 
           let assignedTagsStr = "";
@@ -1385,7 +1436,7 @@
               <div class="day-column">
                 <div class="day-name-header">${dayName}</div>
                 <div class="day-date-sub">${dayShortDate}</div>
-                
+
                 <div class="clock-container-area">
                   <div class="chart-container-sm" title="Clicca per aprire la finestra di selezione oraria ed eventi">
                     <canvas id="clock24_w${weekIdx}_d${dayOffset}"></canvas>
