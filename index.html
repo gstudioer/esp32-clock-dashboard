@@ -1102,6 +1102,15 @@
       document.getElementById("eventDetailModal").style.display = "none";
     }
 
+    // Restituisce il nome del giorno (LUN..DOM) per una data "YYYY-MM-DD"
+    function getDayName(dateStr) {
+      const parts = dateStr.split("-");
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const jsDay = d.getDay(); // 0=Domenica .. 6=Sabato
+      const idx = (jsDay + 6) % 7; // riallinea a WEEKDAYS (0=LUN..6=DOM)
+      return WEEKDAYS[idx];
+    }
+
     // Mostra, per l'evento cliccato nel grafico a barre, l'elenco dei giorni
     // (e delle ore specifiche) in cui quell'evento è stato assegnato, limitato
     // al periodo attualmente filtrato.
@@ -1136,9 +1145,10 @@
           li.title = "Clicca per aprire il dettaglio orologio di questo giorno";
 
           const hoursStr = m.hours.map(h => `${h.toString().padStart(2, '0')}:00`).join(", ");
+          const dayName = getDayName(m.date);
 
           li.innerHTML = `
-            <span><strong class="minute-time">${m.date}</strong> &rarr; ${hoursStr}</span>
+            <span><strong style="color: #58a6ff;">${dayName}</strong> <strong class="minute-time">${m.date}</strong> &rarr; ${hoursStr}</span>
             <span class="minute-dur">${m.hours.length} h</span>
           `;
 
