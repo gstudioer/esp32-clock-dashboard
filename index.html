@@ -611,6 +611,17 @@
     </div>
   </div>
 
+  <!-- MODALE DETTAGLIO EVENTO (click sulle barre del grafico eventi) -->
+  <div id="eventDetailModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="eventDetailTitle">Dettaglio Evento</span>
+        <button class="close-btn" onclick="closeEventDetailModal()">&times;</button>
+      </div>
+      <ul id="eventDetailList" class="minute-list"></ul>
+    </div>
+  </div>
+
   <div class="filter-container">
     <span class="filter-label">📅 Filtra per Data:</span>
     <input type="date" id="datePicker" class="date-input" onchange="applyFilter()">
@@ -1087,6 +1098,62 @@
       document.getElementById("clockDetailModal").style.display = "none";
     }
 
+    function closeEventDetailModal() {
+      document.getElementById("eventDetailModal").style.display = "none";
+    }
+
+    // Mostra, per l'evento cliccato nel grafico a barre, l'elenco dei giorni
+    // (e delle ore specifiche) in cui quell'evento è stato assegnato, limitato
+    // al periodo attualmente filtrato.
+    function openEventDetailModal(eventName, dates) {
+      document.getElementById("eventDetailTitle").innerText = `📌 Evento: ${eventName}`;
+
+      const list = document.getElementById("eventDetailList");
+      list.innerHTML = "";
+
+      const matches = [];
+      dates.forEach(d => {
+        if (hourlyEventAssignments[d]) {
+          const hrs = Object.entries(hourlyEventAssignments[d])
+            .filter(([h, ev]) => ev === eventName)
+            .map(([h]) => parseInt(h, 10))
+            .sort((a, b) => a - b);
+          if (hrs.length > 0) {
+            matches.push({ date: d, hours: hrs });
+          }
+        }
+      });
+
+      matches.sort((a, b) => a.date.localeCompare(b.date));
+
+      if (matches.length === 0) {
+        list.innerHTML = `<li class="minute-item" style="color: #788ba6; justify-content: center;">Nessuna occorrenza trovata per il periodo selezionato.</li>`;
+      } else {
+        matches.forEach(m => {
+          const li = document.createElement("li");
+          li.className = "minute-item";
+          li.style.cursor = "pointer";
+          li.title = "Clicca per aprire il dettaglio orologio di questo giorno";
+
+          const hoursStr = m.hours.map(h => `${h.toString().padStart(2, '0')}:00`).join(", ");
+
+          li.innerHTML = `
+            <span><strong class="minute-time">${m.date}</strong> &rarr; ${hoursStr}</span>
+            <span class="minute-dur">${m.hours.length} h</span>
+          `;
+
+          li.onclick = () => {
+            closeEventDetailModal();
+            openClockModal(m.date);
+          };
+
+          list.appendChild(li);
+        });
+      }
+
+      document.getElementById("eventDetailModal").style.display = "flex";
+    }
+
     let barChartInstance = null;
     let pieChartInstance = null;
     let eventsChartInstance = null;
@@ -1408,6 +1475,15 @@
                 }
               }
             }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const clickedLabel = labels[elements[0].index];
+              openEventDetailModal(clickedLabel, dates);
+            }
+          },
+          onHover: (e, elements) => {
+            e.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
           },
           scales: {
             x: { ticks: { color: '#788ba6' }, grid: { color: '#1a212d' } },
