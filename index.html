@@ -1244,7 +1244,7 @@
       const ctxModal = document.getElementById("modalClockCanvas").getContext("2d");
       modalChartInstance = new Chart(ctxModal, {
         type: 'doughnut',
-        plugins: [makeUnassignedMarkerPlugin(dateStr, h => !!(dayData && dayData.hourly[h]))],
+        plugins: [hourLabelsPlugin, makeUnassignedMarkerPlugin(dateStr, h => !!(dayData && dayData.hourly[h]))],
         data: {
           labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
           datasets: [{
@@ -1256,6 +1256,7 @@
         },
         options: {
           cutout: '70%',
+          layout: { padding: 12 },
           plugins: { legend: { display: false } },
           onClick: (e, elements) => {
             if (elements.length > 0) {
@@ -1690,8 +1691,8 @@
           meta.data.forEach((arc, h) => {
             if (!isActiveFn(h) || hourHasEvent(dateStr, h)) return;
             const a = (arc.startAngle + arc.endAngle) / 2;
-            const r = (arc.innerRadius + arc.outerRadius) / 2;
-            const rad = Math.max(2.5, Math.min(6, (arc.outerRadius - arc.innerRadius) * 0.28));
+            const rad = Math.max(2.5, Math.min(5, (arc.outerRadius - arc.innerRadius) * 0.25));
+            const r = arc.outerRadius + rad + 1; // fuori dall'anello, così non copre l'orario
             ctx.save();
             ctx.beginPath();
             ctx.arc(arc.x + Math.cos(a) * r, arc.y + Math.sin(a) * r, rad, 0, Math.PI * 2);
@@ -1706,13 +1707,38 @@
       };
     }
 
+    // Piccola etichetta con l'ora su ogni spicchio (es. "14")
+    const hourLabelsPlugin = {
+      id: 'hourLabels',
+      afterDatasetsDraw(chart) {
+        const meta = chart.getDatasetMeta(0);
+        const colors = chart.data.datasets[0].backgroundColor;
+        const ctx = chart.ctx;
+        meta.data.forEach((arc, h) => {
+          const a = (arc.startAngle + arc.endAngle) / 2;
+          const thick = arc.outerRadius - arc.innerRadius;
+          const r = (arc.innerRadius + arc.outerRadius) / 2;
+          const size = Math.max(6, Math.min(11, thick * 0.5));
+          const c = String(colors[h] || '#787878').replace('#', '');
+          const lum = (parseInt(c.substr(0, 2), 16) * 0.299 + parseInt(c.substr(2, 2), 16) * 0.587 + parseInt(c.substr(4, 2), 16) * 0.114);
+          ctx.save();
+          ctx.font = `600 ${size}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = lum > 140 ? '#0b0e14' : '#ffffff';
+          ctx.fillText(String(h), arc.x + Math.cos(a) * r, arc.y + Math.sin(a) * r);
+          ctx.restore();
+        });
+      }
+    };
+
     function createDoughnutSafely(canvasId, bgColors, labels, dateStr) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       new Chart(ctx, {
         type: 'doughnut',
-        plugins: [makeUnassignedMarkerPlugin(dateStr, h => bgColors[h] !== COLOR_INATTIVO)],
+        plugins: [hourLabelsPlugin, makeUnassignedMarkerPlugin(dateStr, h => bgColors[h] !== COLOR_INATTIVO)],
         data: {
           labels: labels,
           datasets: [{
@@ -1724,6 +1750,7 @@
         },
         options: {
           cutout: '70%',
+          layout: { padding: 8 },
           plugins: {
             legend: { display: false },
             tooltip: {
