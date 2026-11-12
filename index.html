@@ -1244,6 +1244,7 @@
       const ctxModal = document.getElementById("modalClockCanvas").getContext("2d");
       modalChartInstance = new Chart(ctxModal, {
         type: 'doughnut',
+        plugins: [makeUnassignedMarkerPlugin(dateStr, h => !!(dayData && dayData.hourly[h]))],
         data: {
           labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`),
           datasets: [{
@@ -1676,12 +1677,42 @@
       });
     }
 
+    // Segnino rosso sugli spicchi orari ATTIVI a cui non è stato assegnato nessun evento
+    function hourHasEvent(dateStr, h) {
+      return !!(hourlyEventAssignments[dateStr] && hourlyEventAssignments[dateStr][h]);
+    }
+    function makeUnassignedMarkerPlugin(dateStr, isActiveFn) {
+      return {
+        id: 'unassignedMarker',
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(0);
+          const ctx = chart.ctx;
+          meta.data.forEach((arc, h) => {
+            if (!isActiveFn(h) || hourHasEvent(dateStr, h)) return;
+            const a = (arc.startAngle + arc.endAngle) / 2;
+            const r = (arc.innerRadius + arc.outerRadius) / 2;
+            const rad = Math.max(2.5, Math.min(6, (arc.outerRadius - arc.innerRadius) * 0.28));
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(arc.x + Math.cos(a) * r, arc.y + Math.sin(a) * r, rad, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff2d2d';
+            ctx.fill();
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+            ctx.restore();
+          });
+        }
+      };
+    }
+
     function createDoughnutSafely(canvasId, bgColors, labels, dateStr) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       new Chart(ctx, {
         type: 'doughnut',
+        plugins: [makeUnassignedMarkerPlugin(dateStr, h => bgColors[h] !== COLOR_INATTIVO)],
         data: {
           labels: labels,
           datasets: [{
@@ -1699,7 +1730,8 @@
               callbacks: {
                 label: function(ctx) {
                   const isAct = bgColors[ctx.dataIndex] !== COLOR_INATTIVO;
-                  return ` ${labels[ctx.dataIndex]} - ${isAct ? 'ATTIVO' : 'INATTIVO'}`;
+                  const noEv = isAct && !hourHasEvent(dateStr, ctx.dataIndex);
+                  return ` ${labels[ctx.dataIndex]} - ${isAct ? 'ATTIVO' : 'INATTIVO'}${noEv ? ' · 🔴 senza evento' : ''}`;
                 }
               }
             }
